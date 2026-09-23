@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Task = require("../models/Task");
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
+const emailService = require("./email.service");
 
 const createTask = async (taskData, createdBy) => {
   const { title, description, assignedTo, priority, status, dueDate } = taskData;
@@ -28,6 +29,20 @@ const createTask = async (taskData, createdBy) => {
     status,
     dueDate,
   });
+
+  // Send assignment notification without failing task creation
+try {
+  const assignedBy = await User.findById(createdBy);
+
+  await emailService.sendTaskAssignedEmail(
+    task,
+    assignedUser,
+    assignedBy
+  );
+} catch (error) {
+  console.error("Task assignment email failed:", error.message);
+}
+
 
   return task;
 };
@@ -272,19 +287,46 @@ const updateTask = async (taskId, updateData, userId, role) => {
   }
 
   // Check new assignee if admin is reassigning
-  if (updateData.assignedTo) {
-    const assignedUser = await User.findById(
-      updateData.assignedTo
-    );
+  
+let newAssignedUser = null;
 
-    if (!assignedUser) {
-      throw new AppError("Assigned user not found", 404);
-    }
+const isReassignment =
+  updateData.assignedTo &&
+  updateData.assignedTo.toString() !==
+    task.assignedTo.toString();
+
+if (isReassignment) {
+  if (!mongoose.Types.ObjectId.isValid(updateData.assignedTo)) {
+    throw new AppError("Invalid assigned user ID", 400);
   }
+
+  newAssignedUser = await User.findById(
+    updateData.assignedTo
+  );
+
+  if (!newAssignedUser) {
+    throw new AppError("Assigned user not found", 404);
+  }
+}
 
   Object.assign(task, updateData);
 
   await task.save();
+
+  
+if (isReassignment) {
+  try {
+    const assignedBy = await User.findById(userId);
+
+    await emailService.sendTaskAssignedEmail(
+      task,
+      newAssignedUser,
+      assignedBy
+    );
+  } catch (error) {
+    console.error("Task reassignment email failed:", error.message);
+  }
+}
 
   return await Task.findById(task._id)
     .populate("createdBy", "name email")

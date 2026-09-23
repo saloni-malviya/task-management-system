@@ -78,10 +78,56 @@ const updateProfile = async (userId, data) => {
 
 
 const getAllUsers = async () => {
-    const users = await User.find();
+   // const users = await User.find();
+    const users = await User.aggregate([
+  {
+    $lookup: {
+      from: "tasks",
+      let: { userId: "$_id" },
+      pipeline: [
+        {
+          $match: {
+            $expr: {
+              $eq: ["$assignedTo", "$$userId"]
+            }
+          }
+        },
+        {
+          $count: "total"
+        }
+      ],
+      as: "taskStats"
+    }
+  },
+  {
+    $addFields: {
+      taskCount: {
+        $ifNull: [
+          { $arrayElemAt: ["$taskStats.total", 0] },
+          0
+        ]
+      }
+    }
+  },
+  {
+    $project: {
+      name: 1,
+      email: 1,
+      role: 1,
+      createdAt: 1,
+      taskCount: 1
+    }
+  },
+  {
+    $sort: {
+      createdAt: -1
+    }
+  }
+]);
 
     return users;
 };
+
 
 const getUserById = async (userId) => {
     const user = await User.findById(userId);
