@@ -9,7 +9,7 @@ const validate = require("../middleware/validation.middleware");
 
 const {
     register,
-    login
+    login, logout
 } = require("../controllers/auth.controller");
 
 const protect = require("../middleware/auth.middleware");
@@ -30,5 +30,8 @@ router.post(
     validate,
     login
 );
+
+router.post("/logout", protect, logout);
+
 
 module.exports = router;

@@ -32,7 +32,14 @@ const updateUserByAdminValidator = [
     body("role")
         .optional()
         .isIn(["user", "admin"])
-        .withMessage("Role must be user or admin")
+        .withMessage("Role must be user or admin"),
+
+        body("canCreateTask")
+    .optional()
+    .isBoolean()
+    .withMessage("canCreateTask must be true or false")
+    .toBoolean(),
+
 ];
 
 module.exports = {

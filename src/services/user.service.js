@@ -77,9 +77,10 @@ const updateProfile = async (userId, data) => {
 };
 
 
-const getAllUsers = async () => {
+const getAllUsers = async (page=1, limit=10) => {
    // const users = await User.find();
-    const users = await User.aggregate([
+   const skip = (page-1) * limit;
+    const result = await User.aggregate([
   {
     $lookup: {
       from: "tasks",
@@ -122,10 +123,35 @@ const getAllUsers = async () => {
     $sort: {
       createdAt: -1
     }
-  }
+  }, 
+  {
+            $facet: {
+                users: [
+                    { $skip: skip },
+                    { $limit: limit }
+                ],
+                totalCount: [
+                    { $count: "total" }
+                ]
+            }
+        }
 ]);
+const users = result[0]?.users || [];
 
-    return users;
+    const totalUsers =
+        result[0]?.totalCount[0]?.total || 0;
+
+    return {
+        users,
+        pagination: {
+            currentPage: page,
+            totalPages: Math.ceil(totalUsers / limit),
+            totalUsers,
+            limit
+        }
+    };
+
+  //  return users;
 };
 
 
@@ -139,7 +165,7 @@ const getUserById = async (userId) => {
     return user;
 };
 const updateUserById = async (userId, data) => {
-const allowedFields = ["name", "role"];
+const allowedFields = ["name", "role", "canCreateTask"];
 
     const invalidFields = Object.keys(data).filter(
         (field) => !allowedFields.includes(field)
@@ -171,6 +197,10 @@ const allowedFields = ["name", "role"];
 
     if (data.role !== undefined) {
         user.role = data.role;
+    }
+
+    if (data.canCreateTask !== undefined) {
+        user.canCreateTask = data.canCreateTask;
     }
 
     await user.save();

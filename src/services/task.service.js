@@ -19,6 +19,35 @@ const createTask = async (taskData, createdBy) => {
     throw new AppError("Assigned user not found", 404);
   }
 
+  // Get creator details
+  const creator = await User.findById(createdBy);
+
+  if (!creator) {
+    throw new AppError("Creator user not found", 404);
+  }
+
+  // Normal user needs permission to create tasks
+if (
+  creator.role !== "admin" &&
+  creator.canCreateTask !== true
+) {
+  throw new AppError(
+    "You do not have permission to create tasks",
+    403
+  );
+}
+
+  // Normal user can create task only for themselves
+  if (
+    creator.role !== "admin" &&
+    assignedTo.toString() !== createdBy.toString()
+  ) {
+    throw new AppError(
+      "You can create a task only for yourself",
+      403
+    );
+  }
+
   // Create task
   const task = await Task.create({
     title,
@@ -32,7 +61,9 @@ const createTask = async (taskData, createdBy) => {
 
   // Send assignment notification without failing task creation
 try {
-  const assignedBy = await User.findById(createdBy);
+  //const assignedBy = await User.findById(createdBy);
+
+  const assignedBy = creator;
 
   await emailService.sendTaskAssignedEmail(
     task,
@@ -241,31 +272,9 @@ const updateTask = async (taskId, updateData, userId, role) => {
     throw new AppError("No fields provided for update", 400);
   }
 
-  // Normal user can update only status
-  if (role !== "admin") {
-    const isAssignedUser =
-      task.assignedTo.toString() === userId;
-
-    if (!isAssignedUser) {
-      throw new AppError(
-        "You are not authorized to update this task",
-        403
-      );
-    }
-
-    const onlyStatusField =
-      receivedFields.length === 1 &&
-      receivedFields[0] === "status";
-
-    if (!onlyStatusField) {
-      throw new AppError(
-        "You can only update task status",
-        403
-      );
-    }
-  }
-
+  
   // Admin can update these fields
+  if(role === "admin") {
   const allowedFields = [
     "title",
     "description",
@@ -331,10 +340,105 @@ if (isReassignment) {
   return await Task.findById(task._id)
     .populate("createdBy", "name email")
     .populate("assignedTo", "name email");
+}
+
+// Normal user permissions
+  // ------------------------------------------------
+
+  const isCreator =
+    task.createdBy.toString() === userId.toString();
+
+  const isAssignedUser =
+    task.assignedTo.toString() === userId.toString();
+
+  // User-created task
+  if (isCreator) {
+
+    // User needs permission to manage their own created tasks
+    const creator = await User.findById(userId);
+
+    if (!creator) {
+        throw new AppError("User not found", 404);
+    }
+
+    if (creator.canCreateTask !== true) {
+        throw new AppError(
+            "You do not have permission to manage your created tasks",
+            403
+        );
+    }
+
+
+    const allowedFields = [
+      "title",
+      "description",
+      "assignedTo",
+      "status",
+      "priority",
+      "dueDate",
+    ];
+    const invalidFields = receivedFields.filter(
+      (field) => !allowedFields.includes(field)
+    );
+
+    if (invalidFields.length > 0) {
+      throw new AppError(
+        `You cannot update: ${invalidFields.join(", ")}`,
+        400
+      );
+    }
+
+    // User cannot assign their own task to another user
+    if (
+      updateData.assignedTo &&
+      updateData.assignedTo.toString() !== userId.toString()
+    ) {
+      throw new AppError(
+        "You can assign your task only to yourself",
+        403
+      );
+    }
+    Object.assign(task, updateData);
+
+    await task.save();
+
+    return await Task.findById(task._id)
+      .populate("createdBy", "name email")
+      .populate("assignedTo", "name email");
+  }
+
+  // Admin-created task assigned to this user
+  if (isAssignedUser) {
+
+    const onlyStatusField =
+      receivedFields.length === 1 &&
+      receivedFields[0] === "status";
+
+    if (!onlyStatusField) {
+      throw new AppError(
+        "You can only update task status",
+        403
+      );
+    }
+
+    task.status = updateData.status;
+    await task.save();
+
+    return await Task.findById(task._id)
+      .populate("createdBy", "name email")
+      .populate("assignedTo", "name email");
+  }
+
+  // User has no access to this task
+  throw new AppError(
+    "You are not authorized to update this task",
+    403
+  );
 };
 
 
-const deleteTask = async (taskId, role) => {
+
+const deleteTask = async (taskId, userId, role) => {
   if (!mongoose.Types.ObjectId.isValid(taskId)) {
     throw new AppError("Invalid task ID", 400);
   }
@@ -345,12 +449,30 @@ const deleteTask = async (taskId, role) => {
     throw new AppError("Task not found", 404);
   }
 
-  if (role !== "admin") {
-    throw new AppError(
-      "Only admin can delete tasks",
-      403
-    );
+  //Admin can delete any task
+  if (role === "admin") {
+    await Task.findByIdAndDelete(taskId);
+    return task;
   }
+
+  //Normal user can delete only the task created by themselves
+  const isCreator = task.createdBy.toString() === userId.toString();
+  if(!isCreator) {
+    throw new AppError("You can only delete tasks created by yourself", 403);
+  }
+
+  const user = await User.findById(userId);
+
+if (!user) {
+    throw new AppError("User not found", 404);
+}
+
+if (user.canCreateTask !== true) {
+    throw new AppError(
+        "You do not have permission to delete your created tasks",
+        403
+    );
+}
 
   await Task.findByIdAndDelete(taskId);
 

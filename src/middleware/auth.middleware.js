@@ -37,9 +37,13 @@ const protect = asyncHandler(async (req, res, next) => {
         );
     }
 
+    if (decoded.tokenVersion !== user.tokenVersion) {
+    throw new AppError("Session has been invalidated. Please login again.", 401);
+}
+
     req.user = {
         userId: user._id.toString(),
-        role: user.role
+        role: user.role,
     };
 
     next();

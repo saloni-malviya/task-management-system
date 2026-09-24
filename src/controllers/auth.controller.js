@@ -24,7 +24,16 @@ const login = asyncHandler(async (req, res) => {
     );
 });
 
+const logout = asyncHandler(async (req, res) => {
+    const result = await authService.logout(req.user.userId);
+
+    return res.status(200).json({
+        success: true,
+        message: result.message,
+    });
+});
+
 module.exports = {
     register,
-    login
+    login, logout,
 };

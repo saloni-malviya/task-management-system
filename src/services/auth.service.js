@@ -57,7 +57,8 @@ const loginUser = async ({ email, password }) => {
     const token = jwt.sign(
         {
             userId: user._id,
-            role: user.role
+            role: user.role,
+            tokenVersion: user.tokenVersion,
         },
         env.jwtSecret,
         {
@@ -75,7 +76,23 @@ const loginUser = async ({ email, password }) => {
     };
 };
 
+const logout = async (userId) => {
+    const user = await User.findById(userId);
+
+    if (!user) {
+        throw new AppError("User not found", 404);
+    }
+
+    user.tokenVersion += 1;
+
+    await user.save();
+
+    return {
+        message: "Logout successful",
+    };
+};
+
 module.exports = {
     registerUser,
-    loginUser
+    loginUser, logout
 };

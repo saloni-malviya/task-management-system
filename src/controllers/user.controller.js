@@ -28,13 +28,27 @@ const updateProfile = asyncHandler(async (req, res) => {
 });
 
 const getAllUsers = asyncHandler(async (req, res) => {
-    const users = await userService.getAllUsers();
+  //  const users = await userService.getAllUsers();
 
+  const page = Math.max(
+        1,
+        parseInt(req.query.page, 10) || 1
+    );
+
+    const limit = Math.min(
+        100,
+        Math.max(1, parseInt(req.query.limit, 10) || 10)
+    );
+
+    const result = await userService.getAllUsers(
+        page,
+        limit
+    );
     return sendResponse(
         res,
         200,
         "Users fetched successfully",
-        users
+        result
     );
 });
 

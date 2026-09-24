@@ -81,6 +81,7 @@ const updateTask = asyncHandler(async (req, res) => {
 const deleteTask = asyncHandler(async (req, res) => {
   await taskService.deleteTask(
     req.params.id,
+    req.user.userId,
     req.user.role
   );
 
