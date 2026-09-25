@@ -2,7 +2,7 @@ const express = require("express");
 
 const protect = require("../middleware/auth.middleware");
 const {
-    getProfile, updateProfile, getAllUsers, getUserById, updateUserById, deleteUserById
+    getProfile, updateProfile, getAllUsers, getUserById, updateUserById, deleteUserById, getMyTaskStats
 } = require("../controllers/user.controller");
 
 const {
@@ -24,6 +24,14 @@ router.patch(
     protect, updateProfileValidator, validate,
     updateProfile
 );
+
+router.get(
+    "/my-stats",
+    protect,
+    getMyTaskStats
+);
+
+
 router.get(
     "/",
     protect,

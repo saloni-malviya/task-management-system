@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
+const Task = require("../models/Task");
 
 const getProfile = async (userId) => {
     const user = await User.findById(userId);
@@ -237,6 +238,50 @@ const deleteUserById = async (userId, requesterId) => {
     await User.findByIdAndDelete(userId);
 };
 
-module.exports = {
-    getProfile, updateProfile, getAllUsers, getUserById, updateUserById, deleteUserById
+const getMyTaskStats = async (userId) => {
+    // User ke tasks ka filter:
+    // - Jo usne banaye (createdBy)
+    // - Ya jo usko assign hue (assignedTo)
+    const userFilter = {
+        $or: [
+            { createdBy: userId },
+            { assignedTo: userId },
+        ],
+    };
+
+    const [
+        totalTasks,
+        pendingTasks,
+        inProgressTasks,
+        completedTasks,
+        highPriorityTasks,
+    ] = await Promise.all([
+        Task.countDocuments(userFilter),
+
+        Task.countDocuments({
+            $and: [userFilter, { status: "pending" }],
+        }),
+
+        Task.countDocuments({
+            $and: [userFilter, { status: "in-progress" }],
+        }),
+
+        Task.countDocuments({
+            $and: [userFilter, { status: "completed" }],
+        }),
+
+        Task.countDocuments({
+            $and: [userFilter, { priority: "high" }],
+        }),
+    ]);
+
+    return {
+        totalTasks,
+        pendingTasks,
+        inProgressTasks,
+        completedTasks,
+        highPriorityTasks,
+    };
 };
+module.exports = {
+    getProfile, updateProfile, getAllUsers, getUserById, updateUserById, deleteUserById, getMyTaskStats};

@@ -87,10 +87,23 @@ const deleteUserById = asyncHandler(async (req, res) => {
     );
 });
 
+const getMyTaskStats = asyncHandler(async (req, res) => {
+    const stats = await userService.getMyTaskStats(
+        req.user.userId
+    );
+
+    return sendResponse(
+        res,
+        200,
+        "Your Task statistics fetched successfully",
+        stats
+    );
+});
+
 
 module.exports = {
     getProfile, updateProfile, getAllUsers,
     getUserById,
     updateUserById,
-    deleteUserById
+    deleteUserById, getMyTaskStats
 };
