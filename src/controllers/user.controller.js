@@ -42,7 +42,8 @@ const getAllUsers = asyncHandler(async (req, res) => {
 
     const result = await userService.getAllUsers(
         page,
-        limit
+        limit,
+        req.query
     );
     return sendResponse(
         res,

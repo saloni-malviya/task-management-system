@@ -78,11 +78,17 @@ const updateProfile = async (userId, data) => {
 };
 
 
-const getAllUsers = async (page=1, limit=10) => {
+const getAllUsers = async (page=1, limit=10, query = {}) => {
    // const users = await User.find();
+   const { search } = query;
+
    const skip = (page-1) * limit;
-    const result = await User.aggregate([
-  {
+
+   //pipeline build
+   const pipeline = [];
+    
+   //Tasks ke sath join (taskcount nikalne k liye)
+   pipeline.push({
     $lookup: {
       from: "tasks",
       let: { userId: "$_id" },
@@ -91,27 +97,77 @@ const getAllUsers = async (page=1, limit=10) => {
           $match: {
             $expr: {
               $eq: ["$assignedTo", "$$userId"]
-            }
-          }
+            },
+          },
         },
         {
-          $count: "total"
-        }
+          $count: "total",
+        },
       ],
-      as: "taskStats"
-    }
-  },
-  {
+      as: "taskStats",
+    },
+  });
+
+  //taskcount field add krna
+  pipeline.push({
     $addFields: {
       taskCount: {
         $ifNull: [
           { $arrayElemAt: ["$taskStats.total", 0] },
-          0
-        ]
-      }
+          0,
+        ],
+      },
+    },
+  });
+
+  //search filter
+  if(search && search.trim()) {
+    const searchLower = search.trim().toLowerCase();
+
+    //search condition
+    const stringSearchConditions = [
+        {
+            name: {
+                $regex: search.trim(),
+                $options: "i",
+            },
+        },
+        {
+            email: {
+                $regex: search.trim(),
+                $options: "i",
+
+            },
+        },
+        {
+            role: {
+                $regex: search.trim(),
+                $options: "i",
+
+            },
+        },
+    ];
+
+    //agr search number hai, taskcount se match kro
+    if(!isNaN(searchLower)) {
+        stringSearchConditions.push({
+            $expr: {
+                $regexMatch: {
+                    input: { $toString: "$taskCount" },
+                    regex: search.trim(),
+                },
+            },
+
+        });
     }
-  },
-  {
+  pipeline.push({
+    $match: {
+        $or: stringSearchConditions,
+    },
+  });
+}
+
+pipeline.push({
     $project: {
       name: 1,
       email: 1,
@@ -119,24 +175,28 @@ const getAllUsers = async (page=1, limit=10) => {
       createdAt: 1,
       taskCount: 1
     }
-  },
-  {
+  });
+
+  pipeline.push({
     $sort: {
       createdAt: -1
     }
-  }, 
-  {
+  }); 
+
+  //pagination + total count ek sath
+  pipeline.push({
             $facet: {
                 users: [
                     { $skip: skip },
-                    { $limit: limit }
+                    { $limit: limit },
                 ],
                 totalCount: [
-                    { $count: "total" }
-                ]
-            }
-        }
-]);
+                    { $count: "total" },
+                ],
+            },
+        });
+
+        const result = await User.aggregate(pipeline);
 const users = result[0]?.users || [];
 
     const totalUsers =
