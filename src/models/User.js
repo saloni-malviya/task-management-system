@@ -40,6 +40,48 @@ const userSchema = new mongoose.Schema(
             type: Number,
             default: 0,
         },
+
+        resetPasswordOtpHash: {
+            type: String,
+            default: null,
+            select: false
+        },
+
+        resetPasswordOtpExpiresAt: {
+            type: Date,
+            default: null,
+            select: false
+        },
+
+resetPasswordOtpLastSentAt: {
+    type: Date,
+    default: null,
+    select: false
+},
+
+resetPasswordOtpSendWindowStart: {
+    type: Date,
+    default: null,
+    select: false
+},
+
+resetPasswordOtpSendCount: {
+    type: Number,
+    default: 0,
+    select: false
+},
+
+resetPasswordOtpVerifyAttempts: {
+    type: Number,
+    default: 0,
+    select: false
+},
+
+resetPasswordTokenVersion: {
+    type: Number,
+    default: 0,
+    select: false
+}
     },
     {
         timestamps: true

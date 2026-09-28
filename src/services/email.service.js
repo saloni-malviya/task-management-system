@@ -35,6 +35,51 @@ Task Management System
   return transporter.sendMail(mailOptions);
 };
 
+const sendPasswordResetOtpEmail = async (
+    user,
+    otp
+) => {
+    if (!user?.email) {
+        throw new Error(
+            "User email is missing"
+        );
+    }
+
+    const mailOptions = {
+        from:
+            process.env.EMAIL_FROM ||
+            process.env.SMTP_USER,
+
+        to: user.email,
+
+        subject:
+            "Password Reset OTP - Task Management System",
+
+        text: `
+Hello ${user.name},
+
+We received a request to reset your password.
+
+Your password reset OTP is:
+
+${otp}
+
+This OTP is valid for 10 minutes.
+
+For security reasons, do not share this OTP with anyone.
+
+If you did not request a password reset, please ignore this email.
+
+Regards,
+Task Management System
+`
+    };
+
+    return transporter.sendMail(
+        mailOptions
+    );
+};
+
 module.exports = {
-  sendTaskAssignedEmail,
+  sendTaskAssignedEmail, sendPasswordResetOtpEmail
 };

@@ -2,14 +2,14 @@ const express = require("express");
 
 const {
     registerValidator,
-    loginValidator
+    loginValidator, forgotPasswordValidator, verifyResetOtpValidator, resetPasswordValidator
 } = require("../validators/auth.validator");
 
 const validate = require("../middleware/validation.middleware");
 
 const {
     register,
-    login, logout
+    login, logout, forgotPassword, verifyResetOtp, resetPassword
 } = require("../controllers/auth.controller");
 
 const protect = require("../middleware/auth.middleware");
@@ -32,6 +32,27 @@ router.post(
 );
 
 router.post("/logout", protect, logout);
+
+router.post(
+    "/forgot-password",
+    forgotPasswordValidator,
+    validate,
+    forgotPassword
+);
+
+router.post(
+    "/verify-forgot-password-otp",
+    verifyResetOtpValidator,
+    validate,
+    verifyResetOtp
+);
+
+router.post(
+    "/reset-password",
+    resetPasswordValidator,
+    validate,
+    resetPassword
+);
 
 
 module.exports = router;

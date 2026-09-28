@@ -27,13 +27,58 @@ const login = asyncHandler(async (req, res) => {
 const logout = asyncHandler(async (req, res) => {
     const result = await authService.logout(req.user.userId);
 
-    return res.status(200).json({
-        success: true,
-        message: result.message,
-    });
+    return sendResponse( res, 200, result.message);
 });
+
+const forgotPassword = asyncHandler(
+    async (req, res) => {
+        const result =
+            await authService.forgotPassword(
+                req.body.email
+            );
+
+        return sendResponse(
+            res,
+            200,
+            result.message
+        );
+    }
+);
+
+const verifyResetOtp = asyncHandler(
+    async (req, res) => {
+        const result =
+            await authService.verifyResetOtp(
+                req.body.email,
+                req.body.otp
+            );
+
+        return sendResponse(
+            res,
+            200,
+            "OTP verified successfully",
+            result
+        );
+    }
+);
+
+const resetPassword = asyncHandler(
+    async (req, res) => {
+        const result =
+            await authService.resetPassword(
+                req.body.resetToken,
+                req.body.newPassword
+            );
+
+        return sendResponse(
+            res,
+            200,
+            result.message
+        );
+    }
+);
 
 module.exports = {
     register,
-    login, logout,
+    login, logout, forgotPassword, verifyResetOtp, resetPassword
 };
