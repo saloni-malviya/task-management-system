@@ -74,6 +74,11 @@ const restoreUser = async (userId) => {
     user.isDeleted = false;
     user.deletedAt = null;
     user.deletedBy = null;
+
+    // Saare purane tokens invalid karo
+    user.tokenVersion += 1;
+    user.refreshTokenVersion += 1;
+
     await user.save();
 
     return user;

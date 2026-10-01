@@ -314,6 +314,11 @@ const deleteUserById = async (userId, requesterId) => {
     user.isDeleted = true;
     user.deletedAt = new Date();
     user.deletedBy = requesterId;
+
+     // Delete pe bhi tokens invalid karo
+    user.tokenVersion += 1;
+    user.refreshTokenVersion += 1;
+    
     await user.save();
 };
 

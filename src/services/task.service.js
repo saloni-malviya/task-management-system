@@ -13,7 +13,7 @@ const createTask = async (taskData, createdBy) => {
   }
 
   // Check whether assigned user exists
-  const assignedUser = await User.findById(assignedTo);
+  const assignedUser = await User.findOne({ _id: assignedTo, isDeleted: false });
 
   if (!assignedUser) {
     throw new AppError("Assigned user not found", 404);
@@ -316,9 +316,10 @@ if (isReassignment) {
     throw new AppError("Invalid assigned user ID", 400);
   }
 
-  newAssignedUser = await User.findById(
-    updateData.assignedTo
-  );
+  newAssignedUser = await User.findOne({
+    _id: updateData.assignedTo,
+    isDeleted: false
+});
 
   if (!newAssignedUser) {
     throw new AppError("Assigned user not found", 404);
