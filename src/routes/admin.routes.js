@@ -14,4 +14,18 @@ router.get(
   adminController.getDashboardStats
 );
 
+router.post(
+    "/tasks/:id/restore",
+    protect,
+    authorizeRoles("admin"),
+    adminController.restoreTask
+);
+
+router.post(
+    "/users/:id/restore",
+    protect,
+    authorizeRoles("admin"),
+    adminController.restoreUser
+);
+
 module.exports = router;

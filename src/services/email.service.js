@@ -80,6 +80,40 @@ Task Management System
     );
 };
 
+const sendEmailVerificationOtpEmail = async (user, otp) => {
+    if (!user?.email) {
+        throw new Error("User email is missing");
+    }
+
+    const mailOptions = {
+        from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+        to: user.email,
+        subject: "Verify Your Email - Task Management System",
+        text: `
+Hello ${user.name},
+
+Welcome to Task Management System!
+
+Please verify your email address to activate your account.
+
+Your email verification OTP is:
+
+${otp}
+
+This OTP is valid for 10 minutes.
+
+Without verification, you will not be able to login.
+
+If you did not create this account, please ignore this email.
+
+Regards,
+Task Management System
+`
+    };
+
+    return transporter.sendMail(mailOptions);
+};
+
 module.exports = {
-  sendTaskAssignedEmail, sendPasswordResetOtpEmail
+  sendTaskAssignedEmail, sendPasswordResetOtpEmail, sendEmailVerificationOtpEmail
 };

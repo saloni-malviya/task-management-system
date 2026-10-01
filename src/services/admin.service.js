@@ -1,5 +1,7 @@
+const mongoose = require("mongoose");
 const User = require("../models/User");
 const Task = require("../models/Task");
+const AppError = require("../utils/AppError");
 
 const getDashboardStats = async () => {
   const [
@@ -10,17 +12,17 @@ const getDashboardStats = async () => {
     completedTasks,
     highPriorityTasks,
   ] = await Promise.all([
-    User.countDocuments(),
+    User.countDocuments({ isDeleted: false }),
 
-    Task.countDocuments(),
+    Task.countDocuments({ isDeleted: false }),
 
-    Task.countDocuments({ status: "pending" }),
+    Task.countDocuments({ isDeleted: false, status: "pending" }),
 
-    Task.countDocuments({ status: "in-progress" }),
+    Task.countDocuments({ isDeleted: false, status: "in-progress" }),
 
-    Task.countDocuments({ status: "completed" }),
+    Task.countDocuments({ isDeleted: false, status: "completed" }),
 
-    Task.countDocuments({ priority: "high" }),
+    Task.countDocuments({ isDeleted: false, priority: "high" }),
   ]);
 
   return {
@@ -33,6 +35,50 @@ const getDashboardStats = async () => {
   };
 };
 
+const restoreTask = async (taskId) => {
+    if (!mongoose.Types.ObjectId.isValid(taskId)) {
+        throw new AppError("Invalid task ID", 400);
+    }
+
+    const task = await Task.findOne({
+        _id: taskId,
+        isDeleted: true
+    });
+
+    if (!task) {
+        throw new AppError("Deleted task not found", 404);
+    }
+
+    task.isDeleted = false;
+    task.deletedAt = null;
+    task.deletedBy = null;
+    await task.save();
+
+    return task;
+};
+
+const restoreUser = async (userId) => {
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+        throw new AppError("Invalid user ID", 400);
+    }
+
+    const user = await User.findOne({
+        _id: userId,
+        isDeleted: true
+    });
+
+    if (!user) {
+        throw new AppError("Deleted user not found", 404);
+    }
+
+    user.isDeleted = false;
+    user.deletedAt = null;
+    user.deletedBy = null;
+    await user.save();
+
+    return user;
+};
+
 module.exports = {
-  getDashboardStats,
+  getDashboardStats, restoreTask, restoreUser
 };

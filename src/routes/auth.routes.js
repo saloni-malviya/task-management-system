@@ -2,14 +2,14 @@ const express = require("express");
 
 const {
     registerValidator,
-    loginValidator, forgotPasswordValidator, verifyResetOtpValidator, resetPasswordValidator
+    loginValidator, forgotPasswordValidator, verifyResetOtpValidator, resetPasswordValidator, resendVerificationOtpValidator, verifyEmailValidator, refreshTokenValidator                               
 } = require("../validators/auth.validator");
 
 const validate = require("../middleware/validation.middleware");
 
 const {
     register,
-    login, logout, forgotPassword, verifyResetOtp, resetPassword
+    login, logout, forgotPassword, verifyResetOtp, resetPassword, resendVerificationOtp, verifyEmail, refresh      
 } = require("../controllers/auth.controller");
 
 const protect = require("../middleware/auth.middleware");
@@ -54,5 +54,25 @@ router.post(
     resetPassword
 );
 
+router.post(
+    "/resend-verification-otp",
+    resendVerificationOtpValidator,
+    validate,
+    resendVerificationOtp
+);
+
+router.post(
+    "/verify-email",
+    verifyEmailValidator,
+    validate,
+    verifyEmail
+);
+
+router.post(
+    "/refresh",
+    refreshTokenValidator,
+    validate,
+    refresh
+);
 
 module.exports = router;

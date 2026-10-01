@@ -4,7 +4,7 @@ const AppError = require("../utils/AppError");
 const Task = require("../models/Task");
 
 const getProfile = async (userId) => {
-    const user = await User.findById(userId);
+    const user = await User.findOne({ _id: userId, isDeleted: false });
 
     if (!user) {
         throw new AppError("User not found", 404);
@@ -25,7 +25,8 @@ const updateProfile = async (userId, data) => {
             400
         );
     }
-
+    
+    // mtlb new name ya password diya hai update k liye, user ne
     const hasName = data.name !== undefined;
     const hasNewPassword = data.newPassword !== undefined;
 
@@ -35,17 +36,20 @@ const updateProfile = async (userId, data) => {
             400
         );
     }
-
+      
+    //find user with password
     const user = await User.findById(userId).select("+password");
 
     if (!user) {
         throw new AppError("User not found", 404);
     }
 
+    //update name, if provided (mtlb name update kro, agr diya h to)
     if (hasName) {
         user.name = data.name;
     }
 
+    //update password, if provided
     if (hasNewPassword) {
         if (!data.currentPassword) {
             throw new AppError(
@@ -54,6 +58,7 @@ const updateProfile = async (userId, data) => {
             );
         }
 
+        //current password verify kro, means current password sahi h ya nhi   
         const isCurrentPasswordCorrect = await bcrypt.compare(
             data.currentPassword,
             user.password
@@ -65,7 +70,7 @@ const updateProfile = async (userId, data) => {
                 401
             );
         }
-
+           // agr current pass sahi nikla, then fir newPass hash kro
         user.password = await bcrypt.hash(data.newPassword, 10);
     }
 
@@ -86,6 +91,16 @@ const getAllUsers = async (page=1, limit=10, query = {}) => {
 
    //pipeline build
    const pipeline = [];
+
+   const includeDeleted =
+    query.includeDeleted === "true";
+
+if (!includeDeleted) {
+    pipeline.push({
+        $match: { isDeleted: false }
+    });
+}
+
     
    //Tasks ke sath join (taskcount nikalne k liye)
    pipeline.push({
@@ -217,7 +232,7 @@ const users = result[0]?.users || [];
 
 
 const getUserById = async (userId) => {
-    const user = await User.findById(userId);
+    const user = await User.findOne({ _id: userId, isDeleted: false });
 
     if (!user) {
         throw new AppError("User not found", 404);
@@ -269,8 +284,7 @@ const allowedFields = ["name", "role", "canCreateTask"];
     return user;
 };
 const deleteUserById = async (userId, requesterId) => {
-    const user = await User.findById(userId);
-
+    const user = await User.findOne({ _id: userId, isDeleted: false });
     if (!user) {
         throw new AppError("User not found", 404);
     }
@@ -284,7 +298,7 @@ const deleteUserById = async (userId, requesterId) => {
 
     if (user.role === "admin") {
         const adminCount = await User.countDocuments({
-            role: "admin"
+            role: "admin", isDeleted: false
         });
 
         if (adminCount <= 1) {
@@ -295,7 +309,12 @@ const deleteUserById = async (userId, requesterId) => {
         }
     }
 
-    await User.findByIdAndDelete(userId);
+   // await User.findByIdAndDelete(userId);
+   //  Soft delete
+    user.isDeleted = true;
+    user.deletedAt = new Date();
+    user.deletedBy = requesterId;
+    await user.save();
 };
 
 const getMyTaskStats = async (userId) => {
@@ -303,6 +322,7 @@ const getMyTaskStats = async (userId) => {
     // - Jo usne banaye (createdBy)
     // - Ya jo usko assign hue (assignedTo)
     const userFilter = {
+        isDeleted: false,
         $or: [
             { createdBy: userId },
             { assignedTo: userId },

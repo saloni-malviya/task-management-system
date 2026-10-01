@@ -138,10 +138,55 @@ const resetPasswordValidator = [
         })
 ];
 
+const resendVerificationOtpValidator = [
+    rejectUnknownFields(["email"]),
+    body("email")
+        .trim()
+        .notEmpty()
+        .withMessage("Email is required")
+        .bail()
+        .isEmail()
+        .withMessage("Please provide a valid email")
+        .normalizeEmail()
+];
+
+const verifyEmailValidator = [
+    rejectUnknownFields(["email", "otp"]),
+    body("email")
+        .trim()
+        .notEmpty()
+        .withMessage("Email is required")
+        .bail()
+        .isEmail()
+        .withMessage("Please provide a valid email")
+        .normalizeEmail(),
+
+    body("otp")
+        .trim()
+        .notEmpty()
+        .withMessage("OTP is required")
+        .bail()
+        .matches(/^\d{6}$/)
+        .withMessage("OTP must be a 6-digit number")
+];
+
+const refreshTokenValidator = [
+    rejectUnknownFields(["refreshToken"]),
+    body("refreshToken")
+        .trim()
+        .notEmpty()
+        .withMessage("Refresh token is required")
+        .isJWT()
+        .withMessage("Invalid refresh token format")
+];
+
 module.exports = {
     registerValidator,
     loginValidator,
     forgotPasswordValidator,
     verifyResetOtpValidator,
-    resetPasswordValidator
+    resetPasswordValidator,
+    resendVerificationOtpValidator,
+    verifyEmailValidator,
+    refreshTokenValidator
 };

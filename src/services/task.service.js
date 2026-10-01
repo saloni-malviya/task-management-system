@@ -134,8 +134,13 @@ const getTasks = async (
 
   // Build task filters
   const conditions = [];
+  const includeDeleted = query.includeDeleted === "true" && role === "admin";
 
-  // Normal user: only created or assigned tasks
+    if (!includeDeleted) {
+      conditions.push({ isDeleted: false });
+    }
+
+  // Normal user: only created or assigned tasks dekh skta h
   if (role !== "admin") {
     conditions.push({
       $or: [
@@ -222,11 +227,13 @@ const getTasks = async (
 };
 
 const getTaskById = async (taskId, userId, role) => {
+
+  //check id format valid h ya nhi
   if (!mongoose.Types.ObjectId.isValid(taskId)) {
     throw new AppError("Invalid task ID", 400);
   }
-
-  const task = await Task.findById(taskId)
+   //check task exist krta hai ya nhi
+  const task = await Task.findOne({ _id: taskId, isDeleted: false })
     .populate("createdBy", "name email")
     .populate("assignedTo", "name email");
 
@@ -260,7 +267,7 @@ const updateTask = async (taskId, updateData, userId, role) => {
     throw new AppError("Invalid task ID", 400);
   }
 
-  const task = await Task.findById(taskId);
+  const task = await Task.findOne({ _id: taskId, isDeleted: false });
 
   if (!task) {
     throw new AppError("Task not found", 404);
@@ -443,7 +450,7 @@ const deleteTask = async (taskId, userId, role) => {
     throw new AppError("Invalid task ID", 400);
   }
 
-  const task = await Task.findById(taskId);
+  const task = await Task.findOne({ _id: taskId, isDeleted: false });
 
   if (!task) {
     throw new AppError("Task not found", 404);
@@ -451,7 +458,11 @@ const deleteTask = async (taskId, userId, role) => {
 
   //Admin can delete any task
   if (role === "admin") {
-    await Task.findByIdAndDelete(taskId);
+    task.isDeleted = true;
+    task.deletedAt = new Date();
+    task.deletedBy = userId;
+     await task.save();
+   // await Task.findByIdAndDelete(taskId);
     return task;
   }
 
@@ -474,7 +485,11 @@ if (user.canCreateTask !== true) {
     );
 }
 
-  await Task.findByIdAndDelete(taskId);
+  //await Task.findByIdAndDelete(taskId);
+  task.isDeleted = true;
+  task.deletedAt = new Date();
+  task.deletedBy = userId;
+    await task.save();
 
   return task;
 };

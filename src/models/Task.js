@@ -1,4 +1,3 @@
-
 const mongoose = require("mongoose");
 
 const taskSchema = new mongoose.Schema(
@@ -52,6 +51,24 @@ const taskSchema = new mongoose.Schema(
       type: Date,
       required: [true, "Task due date is required"],
     },
+
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+
+    deletedAt: {
+      type: Date,
+      default: null
+        },
+
+        deletedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null
+        }
+
   },
   {
     timestamps: true,
