@@ -12,6 +12,7 @@ const {
 const validate = require("../middleware/validation.middleware");
 const authorizeRoles = require("../middleware/role.middleware");
 
+const { writeLimiter, searchLimiter } = require("../middleware/rateLimit.middleware");
 const router = express.Router();
 
 router.get(
@@ -21,7 +22,7 @@ router.get(
 );
 router.patch(
     "/profile",
-    protect, updateProfileValidator, validate,
+    protect, writeLimiter, updateProfileValidator, validate,
     updateProfile
 );
 
@@ -36,6 +37,7 @@ router.get(
     "/",
     protect,
     authorizeRoles("admin"),
+    searchLimiter,
     getAllUsers
 );
 
@@ -50,6 +52,7 @@ router.patch(
     "/:id",
     protect,
     authorizeRoles("admin"),
+    writeLimiter,
     updateUserByAdminValidator,
      validate,
     updateUserById
@@ -59,6 +62,7 @@ router.delete(
     "/:id",
     protect,
     authorizeRoles("admin"),
+    writeLimiter,
     deleteUserById
 );
 

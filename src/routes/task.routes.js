@@ -8,11 +8,14 @@ const {
 const validate = require("../middleware/validation.middleware");
 const authorizeRoles = require("../middleware/role.middleware");
 
+const { writeLimiter, searchLimiter } = require("../middleware/rateLimit.middleware");
+
 const router = express.Router();
 
 router.post(
   "/",
   protect, 
+  writeLimiter,
   createTaskValidator,
   validate,
   taskController.createTask
@@ -21,6 +24,7 @@ router.post(
 router.get(
   "/",
   protect,
+  searchLimiter,
   taskController.getTasks
 );
 
@@ -33,6 +37,7 @@ router.get(
 router.patch(
   "/:id",
   protect,
+  writeLimiter,
   updateTaskValidator,
   validate,
   taskController.updateTask
@@ -41,6 +46,7 @@ router.patch(
 router.delete(
   "/:id",
   protect,
+  writeLimiter,
   taskController.deleteTask
 );
 

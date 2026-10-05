@@ -5,6 +5,8 @@ const helmet = require("helmet");
 const notFound = require("./middleware/notFound.middleware");
 const errorHandler = require("./middleware/error.middleware");
 
+const { globalLimiter } = require("./middleware/rateLimit.middleware");
+
 const authRoutes = require("./routes/auth.routes");
 const userRoutes = require("./routes/user.routes");
 const taskRoutes =  require("./routes/task.routes");
@@ -12,11 +14,17 @@ const adminRoutes = require("./routes/admin.routes");
 
 const app = express();
 
+// Trust proxy (agar deployment me reverse proxy/nginx ho)
+app.set("trust proxy", 1);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(cors());
 app.use(helmet());
+
+// GLOBAL RATE LIMIT — sab routes pe pehle lagega
+app.use("/api", globalLimiter);
 
 app.get("/api/v1/health", (req, res) => {
     res.status(200).json({
