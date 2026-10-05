@@ -92,10 +92,14 @@ const getAllUsers = async (page=1, limit=10, query = {}) => {
    //pipeline build
    const pipeline = [];
 
-   const includeDeleted =
-    query.includeDeleted === "true";
+   const includeDeleted = query.includeDeleted === "true";
+   const onlyDeleted = query.onlyDeleted === "true";
 
-if (!includeDeleted) {
+   if(onlyDeleted) {
+    pipeline.push({ $match: { isDeleted: true }});
+   }
+
+else if (!includeDeleted) {
     pipeline.push({
         $match: { isDeleted: false }
     });
@@ -318,7 +322,7 @@ const deleteUserById = async (userId, requesterId) => {
      // Delete pe bhi tokens invalid karo
     user.tokenVersion += 1;
     user.refreshTokenVersion += 1;
-    
+
     await user.save();
 };
 

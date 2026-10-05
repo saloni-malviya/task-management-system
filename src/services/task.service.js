@@ -135,8 +135,15 @@ const getTasks = async (
   // Build task filters
   const conditions = [];
   const includeDeleted = query.includeDeleted === "true" && role === "admin";
+  const onlyDeleted = query.onlyDeleted === "true" && role === "admin";
 
-    if (!includeDeleted) {
+  if(onlyDeleted) {
+    //sirf delete vale
+    conditions.push({ isDeleted: true});
+  }
+
+   else if (!includeDeleted) {
+    //default - sirf active vale
       conditions.push({ isDeleted: false });
     }
 
