@@ -5,6 +5,7 @@ const AppError = require("../utils/AppError");
 const emailService = require("./email.service");
 const emailQueue = require("../queues/email.queue");
 const { logActivity } = require("./activityLog.service");
+const reminderService = require("./reminder.service"); 
 
 const createTask = async (taskData, createdBy, req = null) => {
   const { title, description, assignedTo, priority, status, dueDate } = taskData;
@@ -108,6 +109,19 @@ try {
   console.error("Task assignment email queue failed:", error.message);
 }
 
+// Task create hone pe reminders schedule karo
+  try {
+    const jobIds = await reminderService.scheduleTaskReminders(task);
+
+    if (jobIds.length > 0) {
+      await Task.findByIdAndUpdate(task._id, {
+        reminderJobIds: jobIds,
+      });
+    }
+  } catch (error) {
+    console.error("Failed to schedule reminders:", error.message);
+    // ⚠️ Throw nahi karo — task create ho gaya, reminder fail ho sakta hai
+  }
 
   return task;
 };
@@ -414,6 +428,10 @@ if (isReassignment) {
       });
     }
 
+    // Reminder reschedule logic
+    await handleReminderChanges(task, oldValues, updateData);
+
+
   
 if (isReassignment) {
   try {
@@ -550,6 +568,9 @@ if (isReassignment) {
       });
     }
 
+    // NAYA — Reminder reschedule logic
+    await handleReminderChanges(task, oldValues, updateData);
+
     return await Task.findById(task._id)
       .populate("createdBy", "name email")
       .populate("assignedTo", "name email");
@@ -588,6 +609,10 @@ if (isReassignment) {
         req,
       });
     }
+    // NAYA — Status complete hua to reminders cancel
+    if (updateData.status === "completed") {
+      await reminderService.cancelTaskReminders(task);
+    }
 
     return await Task.findById(task._id)
       .populate("createdBy", "name email")
@@ -599,6 +624,51 @@ if (isReassignment) {
     "You are not authorized to update this task",
     403
   );
+};
+
+// ============================================
+// HELPER — Reminder changes handle karo
+// ============================================
+/**
+ * Task update hone pe reminders ko adjust karo:
+ * - Due date badli → purani cancel, nayi schedule
+ * - Status completed → sab cancel
+ */
+const handleReminderChanges = async (task, oldValues, updateData) => {
+  try {
+    const dueDateChanged =
+      updateData.dueDate &&
+      oldValues.dueDate &&
+      new Date(oldValues.dueDate).getTime() !==
+        new Date(updateData.dueDate).getTime();
+
+        const statusChanged =
+      updateData.status &&
+      oldValues.status &&
+      oldValues.status !== updateData.status;
+
+    if (dueDateChanged) {
+      // Purani reminders cancel
+      await reminderService.cancelTaskReminders(task);
+
+      // Nayi reminders schedule
+      const jobIds = await reminderService.scheduleTaskReminders(task);
+
+      await Task.findByIdAndUpdate(task._id, {
+        reminderJobIds: jobIds,
+      });
+       console.log(`🔄 Rescheduled reminders for task ${task._id}`);
+    }
+
+    if (statusChanged && updateData.status === "completed") {
+      // Task complete hua — reminders ki zaroorat nahi
+      await reminderService.cancelTaskReminders(task);
+      console.log(`Cancelled reminders (task completed) ${task._id}`);
+    }
+  } catch (error) {
+    console.error("Reminder update failed:", error.message);
+    // Throw nahi karo — main update ho gaya, reminder adjust fail ho sakta hai
+  }
 };
 
 
@@ -621,6 +691,9 @@ const deleteTask = async (taskId, userId, role, req = null) => {
     task.deletedBy = userId;
      await task.save();
    // await Task.findByIdAndDelete(taskId);
+
+   //  Task delete hua, reminders cancel karo
+await reminderService.cancelTaskReminders(task);
 
    // Log delete
     await logActivity({
@@ -661,6 +734,9 @@ if (user.canCreateTask !== true) {
   task.deletedAt = new Date();
   task.deletedBy = userId;
     await task.save();
+
+    //Task delete hua, reminders cancel karo
+await reminderService.cancelTaskReminders(task);
 
      // Log delete
   await logActivity({

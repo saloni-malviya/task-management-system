@@ -63,11 +63,18 @@ const taskSchema = new mongoose.Schema(
       default: null
         },
 
-        deletedBy: {
+      deletedBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             default: null
-        }
+      },
+      
+      // Reminder job IDs
+    reminderJobIds: {
+      type: [String],
+      default: [],
+      select: false, // API response me normally nahi chahiye
+    }
 
   },
   {
