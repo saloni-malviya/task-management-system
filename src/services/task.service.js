@@ -3,8 +3,10 @@ const Task = require("../models/Task");
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const emailService = require("./email.service");
+const emailQueue = require("../queues/email.queue");
+const { logActivity } = require("./activityLog.service");
 
-const createTask = async (taskData, createdBy) => {
+const createTask = async (taskData, createdBy, req = null) => {
   const { title, description, assignedTo, priority, status, dueDate } = taskData;
 
   // Check assigned user ID format
@@ -59,19 +61,51 @@ if (
     dueDate,
   });
 
+  // Log task created
+  await logActivity({
+    actor: createdBy,
+    actorRole: creator.role,
+    action: "TASK_CREATED",
+    entityType: "Task",
+    entityId: task._id,
+    entityName: task.title,
+    metadata: {
+      assignedTo: assignedUser.name,
+      priority: task.priority,
+      status: task.status,
+    },
+    req,
+  });
+
   // Send assignment notification without failing task creation
 try {
-  //const assignedBy = await User.findById(createdBy);
-
-  const assignedBy = creator;
+ /* const assignedBy = creator;
 
   await emailService.sendTaskAssignedEmail(
     task,
     assignedUser,
     assignedBy
-  );
+  );*/
+  await emailQueue.add("send-task-assigned", {
+    task: {
+      _id: task._id,
+      title: task.title,
+      description: task.description,
+      priority: task.priority,
+      status: task.status,
+      dueDate: task.dueDate,
+    },
+    assignedUser: {
+      name: assignedUser.name,
+      email: assignedUser.email,
+    },
+    assignedBy: {
+      name: creator.name,
+      email: creator.email,
+    },
+  });
 } catch (error) {
-  console.error("Task assignment email failed:", error.message);
+  console.error("Task assignment email queue failed:", error.message);
 }
 
 
@@ -269,7 +303,7 @@ const getTaskById = async (taskId, userId, role) => {
 };
 
 
-const updateTask = async (taskId, updateData, userId, role) => {
+const updateTask = async (taskId, updateData, userId, role, req = null) => {
   if (!mongoose.Types.ObjectId.isValid(taskId)) {
     throw new AppError("Invalid task ID", 400);
   }
@@ -284,6 +318,12 @@ const updateTask = async (taskId, updateData, userId, role) => {
 
   if (receivedFields.length === 0) {
     throw new AppError("No fields provided for update", 400);
+  }
+
+  // Update se PEHLE old values snapshot
+  const oldValues = {};
+  for (const key of receivedFields) {
+    oldValues[key] = task[key];
   }
 
   
@@ -337,18 +377,75 @@ if (isReassignment) {
 
   await task.save();
 
+  // Status change ka special log
+    if (
+      updateData.status &&
+      oldValues.status &&
+      oldValues.status !== updateData.status
+    ) {
+      await logActivity({
+        actor: userId,
+        actorRole: role,
+        action: "TASK_STATUS_CHANGED",
+        entityType: "Task",
+        entityId: task._id,
+        entityName: task.title,
+        metadata: {
+          oldStatus: oldValues.status,
+          newStatus: updateData.status,
+        },
+        req,
+      });
+    } else {
+      // Normal update log
+      await logActivity({
+        actor: userId,
+        actorRole: role,
+        action: "TASK_UPDATED",
+        entityType: "Task",
+        entityId: task._id,
+        entityName: task.title,
+        metadata: {
+          changedFields: receivedFields,
+          oldValues,
+          newValues: updateData,
+        },
+        req,
+      });
+    }
+
   
 if (isReassignment) {
   try {
     const assignedBy = await User.findById(userId);
 
-    await emailService.sendTaskAssignedEmail(
+  /*  await emailService.sendTaskAssignedEmail(
       task,
       newAssignedUser,
       assignedBy
-    );
+    ); */
+
+    await emailQueue.add("send-task-assigned", {
+      task: {
+        _id: task._id,
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        status: task.status,
+        dueDate: task.dueDate,
+      },
+      assignedUser: {
+        name: newAssignedUser.name,
+        email: newAssignedUser.email,
+      },
+       assignedBy: {
+        name: assignedBy.name,
+        email: assignedBy.email,
+      },
+    });
+
   } catch (error) {
-    console.error("Task reassignment email failed:", error.message);
+    console.error("Task reassignment email queue failed:", error.message);
   }
 }
 
@@ -417,6 +514,42 @@ if (isReassignment) {
 
     await task.save();
 
+    //Status change ya normal update log
+    if (
+      updateData.status &&
+      oldValues.status &&
+      oldValues.status !== updateData.status
+    ) {
+      await logActivity({
+        actor: userId,
+        actorRole: role,
+        action: "TASK_STATUS_CHANGED",
+        entityType: "Task",
+        entityId: task._id,
+        entityName: task.title,
+        metadata: {
+          oldStatus: oldValues.status,
+          newStatus: updateData.status,
+        },
+        req,
+      });
+    } else {
+       await logActivity({
+        actor: userId,
+        actorRole: role,
+        action: "TASK_UPDATED",
+        entityType: "Task",
+        entityId: task._id,
+        entityName: task.title,
+        metadata: {
+          changedFields: receivedFields,
+          oldValues,
+          newValues: updateData,
+        },
+        req,
+      });
+    }
+
     return await Task.findById(task._id)
       .populate("createdBy", "name email")
       .populate("assignedTo", "name email");
@@ -439,6 +572,23 @@ if (isReassignment) {
     task.status = updateData.status;
     await task.save();
 
+     // Status change log
+    if (oldValues.status !== updateData.status) {
+      await logActivity({
+        actor: userId,
+        actorRole: role,
+        action: "TASK_STATUS_CHANGED",
+        entityType: "Task",
+        entityId: task._id,
+        entityName: task.title,
+        metadata: {
+          oldStatus: oldValues.status,
+          newStatus: updateData.status,
+        },
+        req,
+      });
+    }
+
     return await Task.findById(task._id)
       .populate("createdBy", "name email")
       .populate("assignedTo", "name email");
@@ -453,7 +603,7 @@ if (isReassignment) {
 
 
 
-const deleteTask = async (taskId, userId, role) => {
+const deleteTask = async (taskId, userId, role, req = null) => {
   if (!mongoose.Types.ObjectId.isValid(taskId)) {
     throw new AppError("Invalid task ID", 400);
   }
@@ -471,6 +621,19 @@ const deleteTask = async (taskId, userId, role) => {
     task.deletedBy = userId;
      await task.save();
    // await Task.findByIdAndDelete(taskId);
+
+   // Log delete
+    await logActivity({
+      actor: userId,
+      actorRole: role,
+      action: "TASK_DELETED",
+      entityType: "Task",
+      entityId: task._id,
+      entityName: task.title,
+      metadata: { softDelete: true },
+      req,
+    });
+
     return task;
   }
 
@@ -498,6 +661,18 @@ if (user.canCreateTask !== true) {
   task.deletedAt = new Date();
   task.deletedBy = userId;
     await task.save();
+
+     // Log delete
+  await logActivity({
+    actor: userId,
+    actorRole: role,
+    action: "TASK_DELETED",
+    entityType: "Task",
+    entityId: task._id,
+    entityName: task.title,
+    metadata: { softDelete: true },
+    req,
+  });
 
   return task;
 };

@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const User = require("../models/User");
 const Task = require("../models/Task");
 const AppError = require("../utils/AppError");
+const { logActivity } = require("./activityLog.service");
 
 const getDashboardStats = async () => {
   const [
@@ -35,7 +36,7 @@ const getDashboardStats = async () => {
   };
 };
 
-const restoreTask = async (taskId) => {
+const restoreTask = async (taskId, adminId = null, req = null) => {
     if (!mongoose.Types.ObjectId.isValid(taskId)) {
         throw new AppError("Invalid task ID", 400);
     }
@@ -54,10 +55,23 @@ const restoreTask = async (taskId) => {
     task.deletedBy = null;
     await task.save();
 
+    // Log restore
+  if (adminId) {
+    await logActivity({
+      actor: adminId,
+      actorRole: "admin",
+      action: "TASK_RESTORED",
+      entityType: "Task",
+      entityId: task._id,
+      entityName: task.title,
+      req,
+    });
+  }
+
     return task;
 };
 
-const restoreUser = async (userId) => {
+const restoreUser = async (userId, adminId = null, req = null) => {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
         throw new AppError("Invalid user ID", 400);
     }
@@ -80,6 +94,19 @@ const restoreUser = async (userId) => {
     user.refreshTokenVersion += 1;
 
     await user.save();
+
+    //  Log restore
+  if (adminId) {
+    await logActivity({
+      actor: adminId,
+      actorRole: "admin",
+      action: "USER_RESTORED",
+      entityType: "User",
+      entityId: user._id,
+      entityName: user.name,
+      req,
+    });
+  }
 
     return user;
 };

@@ -9,7 +9,7 @@ const getProfile = asyncHandler(async (req, res) => {
 });
 
 const updateProfile = asyncHandler(async (req, res) => {
-  const user = await userService.updateProfile(req.user.userId, req.body);
+  const user = await userService.updateProfile(req.user.userId, req.body, req);
 
   return sendResponse(res, 200, "Profile updated successfully", user);
 });
@@ -32,13 +32,13 @@ const getUserById = asyncHandler(async (req, res) => {
 });
 
 const updateUserById = asyncHandler(async (req, res) => {
-  const user = await userService.updateUserById(req.params.id, req.body);
+  const user = await userService.updateUserById(req.params.id, req.body, req.user.userId, req);
 
   return sendResponse(res, 200, "User updated successfully", user);
 });
 
 const deleteUserById = asyncHandler(async (req, res) => {
-  await userService.deleteUserById(req.params.id, req.user.userId);
+  await userService.deleteUserById(req.params.id, req.user.userId, req);
 
   return sendResponse(res, 200, "User deleted successfully");
 });

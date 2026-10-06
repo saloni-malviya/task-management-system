@@ -14,7 +14,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
 });
 
 const restoreTask = asyncHandler(async (req, res) => {
-    const task = await adminService.restoreTask(req.params.id);
+    const task = await adminService.restoreTask(req.params.id, req.user.userId, req );
 
     return sendResponse(
         res,
@@ -25,7 +25,7 @@ const restoreTask = asyncHandler(async (req, res) => {
 });
 
 const restoreUser = asyncHandler(async (req, res) => {
-    const user = await adminService.restoreUser(req.params.id);
+    const user = await adminService.restoreUser(req.params.id, req.user.userId, req);
 
     return sendResponse(
         res,

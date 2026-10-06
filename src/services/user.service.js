@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const Task = require("../models/Task");
+const { logActivity } = require("./activityLog.service");
 
 const getProfile = async (userId) => {
     const user = await User.findOne({ _id: userId, isDeleted: false });
@@ -12,7 +13,7 @@ const getProfile = async (userId) => {
 
     return user;
 };
-const updateProfile = async (userId, data) => {
+const updateProfile = async (userId, data, req = null) => {
     const allowedFields = ["name", "currentPassword", "newPassword"];
 
     const invalidFields = Object.keys(data).filter(
@@ -75,6 +76,22 @@ const updateProfile = async (userId, data) => {
     }
 
     await user.save();
+
+    //  Log profile update
+  const changedFields = [];
+  if (hasName) changedFields.push("name");
+  if (hasNewPassword) changedFields.push("password");
+
+  await logActivity({
+    actor: userId,
+    actorRole: user.role,
+    action: "PROFILE_UPDATED",
+    entityType: "User",
+    entityId: user._id,
+    entityName: user.name,
+    metadata: { changedFields },
+    req,
+  });
 
     const userObject = user.toObject();
     delete userObject.password;
@@ -244,7 +261,7 @@ const getUserById = async (userId) => {
 
     return user;
 };
-const updateUserById = async (userId, data) => {
+const updateUserById = async (userId, data, adminId = null, req = null) => {
 const allowedFields = ["name", "role", "canCreateTask"];
 
     const invalidFields = Object.keys(data).filter(
@@ -271,6 +288,13 @@ const allowedFields = ["name", "role", "canCreateTask"];
         throw new AppError("User not found", 404);
     }
 
+    // Change track karo
+  const oldValues = {
+    name: user.name,
+    role: user.role,
+    canCreateTask: user.canCreateTask,
+  };
+
     if (data.name !== undefined) {
         user.name = data.name;
     }
@@ -285,9 +309,31 @@ const allowedFields = ["name", "role", "canCreateTask"];
 
     await user.save();
 
+     // ✅ NAYA — Log role/permission change
+  const action =
+    data.role !== undefined || data.canCreateTask !== undefined
+      ? "USER_ROLE_CHANGED"
+      : "PROFILE_UPDATED";
+
+  await logActivity({
+    actor: adminId,
+    actorRole: "admin",
+    action,
+    entityType: "User",
+    entityId: user._id,
+    entityName: user.name,
+    metadata: {
+      changedFields: Object.keys(data),
+      oldValues,
+      newValues: data,
+    },
+    req,
+  });
+
     return user;
 };
-const deleteUserById = async (userId, requesterId) => {
+
+const deleteUserById = async (userId, requesterId, req = null) => {
     const user = await User.findOne({ _id: userId, isDeleted: false });
     if (!user) {
         throw new AppError("User not found", 404);
@@ -302,7 +348,7 @@ const deleteUserById = async (userId, requesterId) => {
 
     if (user.role === "admin") {
         const adminCount = await User.countDocuments({
-            role: "admin", isDeleted: false
+            role: "admin", isDeleted: false,
         });
 
         if (adminCount <= 1) {
@@ -324,6 +370,19 @@ const deleteUserById = async (userId, requesterId) => {
     user.refreshTokenVersion += 1;
 
     await user.save();
+
+    // ✅ NAYA — Log user delete
+  await logActivity({
+    actor: requesterId,
+    actorRole: "admin",
+    action: "USER_DELETED",
+    entityType: "User",
+    entityId: user._id,
+    entityName: user.name,
+    metadata: { softDelete: true },
+    req,
+  });
+
 };
 
 const getMyTaskStats = async (userId) => {

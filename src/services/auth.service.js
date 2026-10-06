@@ -5,6 +5,8 @@ const emailService = require("./email.service");
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const env = require("../config/env");
+const emailQueue = require("../queues/email.queue");
+const { logActivity } = require("./activityLog.service");
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 min
 const OTP_COOLDOWN_MS = 60 * 1000; // 1 min
@@ -116,9 +118,11 @@ const sendOtp = async (userId, purpose) => {
   // Send email based on purpose
   try {
     if (purpose === "password-reset") {
-      await emailService.sendPasswordResetOtpEmail(user, otp);
+      //await emailService.sendPasswordResetOtpEmail(user, otp);
+      await emailQueue.add("send-password-reset-otp", { email: user.email, otp, });
     } else if (purpose === "email-verification") {
-      await emailService.sendEmailVerificationOtpEmail(user, otp);
+     // await emailService.sendEmailVerificationOtpEmail(user, otp);
+      await emailQueue.add("send-email-verification-otp", { email: user.email, otp, });
     }
   } catch (error) {
     // rollback OTP fields
@@ -129,10 +133,10 @@ const sendOtp = async (userId, purpose) => {
 
     await user.save();
 
-    console.error(`OTP email failed (${purpose}):`, error.message);
+    console.error(`OTP queue (email) failed (${purpose}):`, error.message);
 
     throw new AppError(
-      "Unable to send OTP email. Please try again later.",
+      "Unable to queue (send) OTP email. Please try again later.",
       500,
     );
   }
@@ -226,7 +230,7 @@ const verifyOtp = async (email, otp, purpose) => {
   return user;
 };
 
-const registerUser = async ({ name, email, password }) => {
+const registerUser = async ({ name, email, password }, req = null) => {
   const existingUser = await User.findOne({ email });
 
   if (existingUser) {
@@ -251,6 +255,18 @@ const registerUser = async ({ name, email, password }) => {
     throw error;
   }
 
+  //Log Register
+  await logActivity({
+    actor: user._id,
+    actorRole: "user",
+    action: "USER_REGISTERED",
+    entityType: "User",
+    entityId: user._id,
+    entityName: user.name,
+    metadata: { email: user.email },
+    req,
+  });
+
   // Send verification OTP (non-blocking failure)
   try {
     await sendOtp(user._id, "email-verification");
@@ -270,7 +286,7 @@ const registerUser = async ({ name, email, password }) => {
   };
 };
 
-const loginUser = async ({ email, password }) => {
+const loginUser = async ({ email, password }, req = null) => {
   const user = await User.findOne({ email, isDeleted: false }).select("+password");
 
   if (!user) {
@@ -290,6 +306,17 @@ const loginUser = async ({ email, password }) => {
     );
   }
 
+   // Log login
+  await logActivity({
+    actor: user._id,
+    actorRole: user.role,
+    action: "USER_LOGGED_IN",
+    entityType: "Auth",
+    entityId: user._id,
+    entityName: user.name,
+    req,
+  });
+
   //token generate
   const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user);
@@ -305,7 +332,7 @@ const loginUser = async ({ email, password }) => {
   };
 };
 
-const logout = async (userId) => {
+const logout = async (userId, req = null) => {
   const user = await User.findById(userId);
 
   if (!user) {
@@ -316,6 +343,17 @@ const logout = async (userId) => {
   user.refreshTokenVersion += 1;
 
   await user.save();
+
+  // Log logout
+  await logActivity({
+    actor: user._id,
+    actorRole: user.role,
+    action: "USER_LOGGED_OUT",
+    entityType: "Auth",
+    entityId: user._id,
+    entityName: user.name,
+    req,
+  });
 
   return {
     message: "Logout successful",
@@ -374,7 +412,7 @@ const verifyResetOtp = async (email, otp) => {
   };
 };
 
-const resetPassword = async (resetToken, newPassword) => {
+const resetPassword = async (resetToken, newPassword, req = null) => {
   // verify jwt token
   let decoded;
   try {
@@ -420,18 +458,40 @@ const resetPassword = async (resetToken, newPassword) => {
 
   await user.save();
 
+   // Log password reset
+  await logActivity({
+    actor: user._id,
+    actorRole: user.role,
+    action: "PASSWORD_RESET",
+    entityType: "Auth",
+    entityId: user._id,
+    entityName: user.name,
+    req,
+  });
+
   return {
     message:
       "Password reset successfully. Please login with your new password.",
   };
 };
 
-const verifyEmail = async (email, otp) => {
+const verifyEmail = async (email, otp, req = null) => {
   const user = await verifyOtp(email, otp, "email-verification");
 
   // Mark email as verified
   user.isEmailVerified = true;
   await user.save();
+
+  // Log email verify
+  await logActivity({
+    actor: user._id,
+    actorRole: user.role,
+    action: "EMAIL_VERIFIED",
+    entityType: "Auth",
+    entityId: user._id,
+    entityName: user.name,
+    req,
+  });
 
   return {
     message: "Email verified successfully. You can now login.",

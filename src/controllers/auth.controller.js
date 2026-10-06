@@ -3,19 +3,19 @@ const asyncHandler = require("../utils/asyncHandler");
 const sendResponse = require("../utils/response");
 
 const register = asyncHandler(async (req, res) => {
-  const user = await authService.registerUser(req.body);
+  const user = await authService.registerUser(req.body, req);
 
   return sendResponse(res, 201, "User registered successfully", user);
 });
 
 const login = asyncHandler(async (req, res) => {
-  const result = await authService.loginUser(req.body);
+  const result = await authService.loginUser(req.body, req);
 
   return sendResponse(res, 200, "Login successful", result);
 });
 
 const logout = asyncHandler(async (req, res) => {
-  const result = await authService.logout(req.user.userId);
+  const result = await authService.logout(req.user.userId, req);
 
   return sendResponse(res, 200, result.message);
 });
@@ -36,6 +36,7 @@ const resetPassword = asyncHandler(async (req, res) => {
   const result = await authService.resetPassword(
     req.body.resetToken,
     req.body.newPassword,
+    req
   );
 
   return sendResponse(res, 200, result.message);
@@ -48,7 +49,7 @@ const resendVerificationOtp = asyncHandler(async (req, res) => {
 });
 
 const verifyEmail = asyncHandler(async (req, res) => {
-  const result = await authService.verifyEmail(req.body.email, req.body.otp);
+  const result = await authService.verifyEmail(req.body.email, req.body.otp, req );
 
   return sendResponse(res, 200, result.message);
 });
