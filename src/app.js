@@ -12,6 +12,7 @@ const userRoutes = require("./routes/user.routes");
 const taskRoutes = require("./routes/task.routes");
 const adminRoutes = require("./routes/admin.routes");
 const activityLogRoutes = require("./routes/activityLog.routes");
+const notificationRoutes = require("./routes/notification.routes");
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/tasks", taskRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/activity-logs", activityLogRoutes);
+app.use("/api/v1/notifications", notificationRoutes); 
 
 app.use(notFound);
 app.use(errorHandler);

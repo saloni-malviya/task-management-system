@@ -6,6 +6,7 @@ const emailService = require("./email.service");
 const emailQueue = require("../queues/email.queue");
 const { logActivity } = require("./activityLog.service");
 const reminderService = require("./reminder.service");
+const notificationService = require("./notification.service");
 
 const createTask = async (taskData, createdBy, req = null) => {
   const { title, description, assignedTo, priority, status, dueDate } =
@@ -117,6 +118,21 @@ const createTask = async (taskData, createdBy, req = null) => {
     console.error("Failed to schedule reminders:", error.message);
     // ⚠️ Throw nahi karo — task create ho gaya, reminder fail ho sakta hai
   }
+
+    // 🔔 NAYA — Notification: Task assigned to user
+  await notificationService.notifyTaskEvent({
+    task,
+    recipient: assignedUser._id,
+    sender: creator._id,
+    type: "task_assigned",
+    title: "New Task Assigned",
+    message: `${creator.name} assigned you a task: "${task.title}"`,
+    metadata: {
+      priority: task.priority,
+      dueDate: task.dueDate,
+      assignedBy: creator.name,
+    },
+  });
 
   return task;
 };
@@ -384,6 +400,64 @@ const updateTask = async (taskId, updateData, userId, role, req = null) => {
       }
     }
 
+    // 🔔 NAYA — Notification: Admin ne user ko update kiya
+
+  // Case A: Reassignment hua → naye user ko notify
+  if (isReassignment) {
+    await notificationService.notifyTaskEvent({
+      task,
+      recipient: newAssignedUser._id,
+      sender: userId,
+      type: "task_reassigned",
+      title: "Task Reassigned to You",
+      message: `A task "${task.title}" has been assigned to you`,
+      metadata: {
+        priority: task.priority,
+        dueDate: task.dueDate,
+      },
+    });
+  }
+
+   // Case B: Status change hua → assigned user ko notify
+  if (
+    updateData.status &&
+    oldValues.status &&
+    oldValues.status !== updateData.status &&
+    !isReassignment
+  ) {
+    await notificationService.notifyTaskEvent({
+      task,
+      recipient: task.assignedTo,
+      sender: userId,
+      type: "task_status_changed",
+      title: "Task Status Updated",
+      message: `Task "${task.title}" status changed from ${oldValues.status} to ${updateData.status}`,
+      metadata: {
+        oldStatus: oldValues.status,
+        newStatus: updateData.status,
+      },
+    });
+  }
+
+  // Case C: Other fields update hue (title, priority, due date) → assigned user ko notify
+  const nonStatusFields = receivedFields.filter((f) => f !== "status" && f !== "assignedTo", );
+  if (nonStatusFields.length > 0 && !isReassignment) {
+    await notificationService.notifyTaskEvent({
+      task,
+      recipient: task.assignedTo,
+      sender: userId,
+      type: "task_updated",
+      title: "Task Updated",
+      message: `Task "${task.title}" was updated by admin`,
+       metadata: {
+        changedFields: nonStatusFields,
+        oldValues,
+        newValues: updateData,
+      },
+    });
+  }
+
+
     return await Task.findById(task._id)
       .populate("createdBy", "name email")
       .populate("assignedTo", "name email");
@@ -510,12 +584,38 @@ const updateTask = async (taskId, updateData, userId, role, req = null) => {
         },
         req,
       });
+    
+
+     // 🔔 NAYA — Notification: User ne status change kiya → Admin (creator) ko notify
+      const notifType =
+        updateData.status === "completed"
+          ? "task_completed"
+          : "task_status_changed";
+
+      const notifTitle =
+        updateData.status === "completed"
+          ? "Task Completed"
+          : "Task Status Changed";
+
+        await notificationService.notifyTaskEvent({
+          task,
+        recipient: task.createdBy, // admin
+        sender: userId, // user
+        type: notifType,
+        title: notifTitle,
+        message: `Task "${task.title}" status changed from ${oldValues.status} to ${updateData.status}`,
+        metadata: {
+          oldStatus: oldValues.status,
+          newStatus: updateData.status,
+        },
+      });
     }
-    // NAYA — Status complete hua to reminders cancel
+
+     // NAYA — Status complete hua to reminders cancel
     if (updateData.status === "completed") {
       await reminderService.cancelTaskReminders(task);
     }
-
+  
     return await Task.findById(task._id)
       .populate("createdBy", "name email")
       .populate("assignedTo", "name email");
@@ -603,6 +703,19 @@ const deleteTask = async (taskId, userId, role, req = null) => {
       metadata: { softDelete: true },
       req,
     });
+
+    // 🔔 NAYA — Notification: Task deleted → assigned user ko notify
+    await notificationService.notifyTaskEvent({
+      task,
+      recipient: task.assignedTo,
+      sender: userId,
+      type: task_deleted,
+      title: "Task Deleted",
+      message: `Task "${task.title}" has been deleted`,
+      metadata: { deletedBy: userId },
+      includeRelatedId: false, // Task delete ho gaya, link ki zaroorat nahi
+    });
+
 
     return task;
   }
