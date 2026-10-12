@@ -119,10 +119,16 @@ const sendOtp = async (userId, purpose) => {
   try {
     if (purpose === "password-reset") {
       //await emailService.sendPasswordResetOtpEmail(user, otp);
-      await emailQueue.add("send-password-reset-otp", { email: user.email, otp, });
+      await emailQueue.add("send-password-reset-otp", {
+        email: user.email,
+        otp,
+      });
     } else if (purpose === "email-verification") {
-     // await emailService.sendEmailVerificationOtpEmail(user, otp);
-      await emailQueue.add("send-email-verification-otp", { email: user.email, otp, });
+      // await emailService.sendEmailVerificationOtpEmail(user, otp);
+      await emailQueue.add("send-email-verification-otp", {
+        email: user.email,
+        otp,
+      });
     }
   } catch (error) {
     // rollback OTP fields
@@ -287,7 +293,9 @@ const registerUser = async ({ name, email, password }, req = null) => {
 };
 
 const loginUser = async ({ email, password }, req = null) => {
-  const user = await User.findOne({ email, isDeleted: false }).select("+password");
+  const user = await User.findOne({ email, isDeleted: false }).select(
+    "+password",
+  );
 
   if (!user) {
     throw new AppError("Invalid email or password", 401);
@@ -306,7 +314,7 @@ const loginUser = async ({ email, password }, req = null) => {
     );
   }
 
-   // Log login
+  // Log login
   await logActivity({
     actor: user._id,
     actorRole: user.role,
@@ -458,7 +466,7 @@ const resetPassword = async (resetToken, newPassword, req = null) => {
 
   await user.save();
 
-   // Log password reset
+  // Log password reset
   await logActivity({
     actor: user._id,
     actorRole: user.role,
@@ -538,7 +546,6 @@ const refreshAccessToken = async (refreshToken) => {
     }
     throw error;
   }
-  
 
   // Check karo ye actually refresh token hai (access token nahi)
   if (decoded.type !== "refresh") {

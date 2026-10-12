@@ -2,15 +2,14 @@ const { validationResult } = require("express-validator");
 const AppError = require("../utils/AppError");
 
 const validate = (req, res, next) => {
-    const errors = validationResult(req);
+  const errors = validationResult(req);
 
-    if (!errors.isEmpty()) {
-        const messages = errors.array().map((error) => error.msg);
+  if (!errors.isEmpty()) {
+    const messages = errors.array().map((error) => error.msg);
+    return next(new AppError(messages.join(", "), 400));
+  }
 
-        return next(new AppError(messages.join(", "), 400));
-    }
-
-    next();
+  next();
 };
 
 module.exports = validate;

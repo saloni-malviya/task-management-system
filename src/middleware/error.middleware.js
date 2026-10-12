@@ -22,7 +22,6 @@ const errorHandler = (err, req, res, next) => {
     statusCode = 409;
 
     const field = Object.keys(err.keyValue || {})[0];
-
     message = field ? `${field} already exists` : "Duplicate value";
   }
 

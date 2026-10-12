@@ -47,7 +47,7 @@ const reminderWorker = new Worker(
   {
     connection: redisConnection,
     concurrency: 5,
-  }
+  },
 );
 
 reminderWorker.on("completed", (job) => {
@@ -56,7 +56,7 @@ reminderWorker.on("completed", (job) => {
 
 reminderWorker.on("failed", (job, err) => {
   console.error(
-    `❌ Reminder job failed: ${job.name} (id: ${job.id}) — ${err.message}`
+    `❌ Reminder job failed: ${job.name} (id: ${job.id}) — ${err.message}`,
   );
 });
 

@@ -5,10 +5,11 @@ const AppError = require("../utils/AppError");
 const emailService = require("./email.service");
 const emailQueue = require("../queues/email.queue");
 const { logActivity } = require("./activityLog.service");
-const reminderService = require("./reminder.service"); 
+const reminderService = require("./reminder.service");
 
 const createTask = async (taskData, createdBy, req = null) => {
-  const { title, description, assignedTo, priority, status, dueDate } = taskData;
+  const { title, description, assignedTo, priority, status, dueDate } =
+    taskData;
 
   // Check assigned user ID format
   if (!mongoose.Types.ObjectId.isValid(assignedTo)) {
@@ -16,7 +17,10 @@ const createTask = async (taskData, createdBy, req = null) => {
   }
 
   // Check whether assigned user exists
-  const assignedUser = await User.findOne({ _id: assignedTo, isDeleted: false });
+  const assignedUser = await User.findOne({
+    _id: assignedTo,
+    isDeleted: false,
+  });
 
   if (!assignedUser) {
     throw new AppError("Assigned user not found", 404);
@@ -30,25 +34,16 @@ const createTask = async (taskData, createdBy, req = null) => {
   }
 
   // Normal user needs permission to create tasks
-if (
-  creator.role !== "admin" &&
-  creator.canCreateTask !== true
-) {
-  throw new AppError(
-    "You do not have permission to create tasks",
-    403
-  );
-}
+  if (creator.role !== "admin" && creator.canCreateTask !== true) {
+    throw new AppError("You do not have permission to create tasks", 403);
+  }
 
   // Normal user can create task only for themselves
   if (
     creator.role !== "admin" &&
     assignedTo.toString() !== createdBy.toString()
   ) {
-    throw new AppError(
-      "You can create a task only for yourself",
-      403
-    );
+    throw new AppError("You can create a task only for yourself", 403);
   }
 
   // Create task
@@ -79,37 +74,37 @@ if (
   });
 
   // Send assignment notification without failing task creation
-try {
- /* const assignedBy = creator;
+  try {
+    /* const assignedBy = creator;
 
   await emailService.sendTaskAssignedEmail(
     task,
     assignedUser,
     assignedBy
   );*/
-  await emailQueue.add("send-task-assigned", {
-    task: {
-      _id: task._id,
-      title: task.title,
-      description: task.description,
-      priority: task.priority,
-      status: task.status,
-      dueDate: task.dueDate,
-    },
-    assignedUser: {
-      name: assignedUser.name,
-      email: assignedUser.email,
-    },
-    assignedBy: {
-      name: creator.name,
-      email: creator.email,
-    },
-  });
-} catch (error) {
-  console.error("Task assignment email queue failed:", error.message);
-}
+    await emailQueue.add("send-task-assigned", {
+      task: {
+        _id: task._id,
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        status: task.status,
+        dueDate: task.dueDate,
+      },
+      assignedUser: {
+        name: assignedUser.name,
+        email: assignedUser.email,
+      },
+      assignedBy: {
+        name: creator.name,
+        email: creator.email,
+      },
+    });
+  } catch (error) {
+    console.error("Task assignment email queue failed:", error.message);
+  }
 
-// Task create hone pe reminders schedule karo
+  // Task create hone pe reminders schedule karo
   try {
     const jobIds = await reminderService.scheduleTaskReminders(task);
 
@@ -126,82 +121,26 @@ try {
   return task;
 };
 
-/*
-const getTasks = async (userId, role, page = 1, limit = 10) => {
-  const skip = (page - 1) * limit;
-
-  let filter = {};
-
-  if (role !== "admin") {
-    filter = {
-      $or: [
-        { createdBy: userId },
-        { assignedTo: userId },
-      ],
-    };
-  }
-
-  const [tasks, totalTasks] = await Promise.all([
-    Task.find(filter)
-      .populate("createdBy", "name email")
-      .populate("assignedTo", "name email")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit),
-
-    Task.countDocuments(filter),
-  ]);
-
-  return {
-    tasks,
-    pagination: {
-      currentPage: page,
-      totalPages: Math.ceil(totalTasks / limit),
-      totalTasks,
-      limit,
-    },
-  };
-}; */
-
-
-const getTasks = async (
-  userId,
-  role,
-  page = 1,
-  limit = 10,
-  query = {}
-) => {
-  const {
-    search,
-    status,
-    priority,
-    assignedTo,
-    sortBy,
-    order,
-  } = query;
+const getTasks = async (userId, role, page = 1, limit = 10, query = {}) => {
+  const { search, status, priority, assignedTo, sortBy, order } = query;
 
   // Build task filters
   const conditions = [];
   const includeDeleted = query.includeDeleted === "true" && role === "admin";
   const onlyDeleted = query.onlyDeleted === "true" && role === "admin";
 
-  if(onlyDeleted) {
+  if (onlyDeleted) {
     //sirf delete vale
-    conditions.push({ isDeleted: true});
-  }
-
-   else if (!includeDeleted) {
+    conditions.push({ isDeleted: true });
+  } else if (!includeDeleted) {
     //default - sirf active vale
-      conditions.push({ isDeleted: false });
-    }
+    conditions.push({ isDeleted: false });
+  }
 
   // Normal user: only created or assigned tasks dekh skta h
   if (role !== "admin") {
     conditions.push({
-      $or: [
-        { createdBy: userId },
-        { assignedTo: userId },
-      ],
+      $or: [{ createdBy: userId }, { assignedTo: userId }],
     });
   }
 
@@ -235,21 +174,12 @@ const getTasks = async (
   }
 
   // Combine all conditions safely
-  const filter =
-    conditions.length > 0
-      ? { $and: conditions }
-      : {};
+  const filter = conditions.length > 0 ? { $and: conditions } : {};
 
   // Allow only supported sorting fields
-  const allowedSortFields = [
-    "dueDate",
-    "createdAt",
-    "priority",
-  ];
+  const allowedSortFields = ["dueDate", "createdAt", "priority"];
 
-  const finalSortBy = allowedSortFields.includes(sortBy)
-    ? sortBy
-    : "createdAt";
+  const finalSortBy = allowedSortFields.includes(sortBy) ? sortBy : "createdAt";
 
   const sortOrder = order === "asc" ? 1 : -1;
 
@@ -282,12 +212,11 @@ const getTasks = async (
 };
 
 const getTaskById = async (taskId, userId, role) => {
-
   //check id format valid h ya nhi
   if (!mongoose.Types.ObjectId.isValid(taskId)) {
     throw new AppError("Invalid task ID", 400);
   }
-   //check task exist krta hai ya nhi
+  //check task exist krta hai ya nhi
   const task = await Task.findOne({ _id: taskId, isDeleted: false })
     .populate("createdBy", "name email")
     .populate("assignedTo", "name email");
@@ -307,15 +236,11 @@ const getTaskById = async (taskId, userId, role) => {
     task.assignedTo._id.toString() === userId;
 
   if (!isOwner) {
-    throw new AppError(
-      "You are not authorized to access this task",
-      403
-    );
+    throw new AppError("You are not authorized to access this task", 403);
   }
 
   return task;
 };
-
 
 const updateTask = async (taskId, updateData, userId, role, req = null) => {
   if (!mongoose.Types.ObjectId.isValid(taskId)) {
@@ -340,58 +265,53 @@ const updateTask = async (taskId, updateData, userId, role, req = null) => {
     oldValues[key] = task[key];
   }
 
-  
   // Admin can update these fields
-  if(role === "admin") {
-  const allowedFields = [
-    "title",
-    "description",
-    "assignedTo",
-    "status",
-    "priority",
-    "dueDate",
-  ];
+  if (role === "admin") {
+    const allowedFields = [
+      "title",
+      "description",
+      "assignedTo",
+      "status",
+      "priority",
+      "dueDate",
+    ];
 
-  const invalidFields = receivedFields.filter(
-    (field) => !allowedFields.includes(field)
-  );
-
-  if (invalidFields.length > 0) {
-    throw new AppError(
-      `You cannot update: ${invalidFields.join(", ")}`,
-      400
+    const invalidFields = receivedFields.filter(
+      (field) => !allowedFields.includes(field),
     );
-  }
 
-  // Check new assignee if admin is reassigning
-  
-let newAssignedUser = null;
+    if (invalidFields.length > 0) {
+      throw new AppError(`You cannot update: ${invalidFields.join(", ")}`, 400);
+    }
 
-const isReassignment =
-  updateData.assignedTo &&
-  updateData.assignedTo.toString() !==
-    task.assignedTo.toString();
+    // Check new assignee if admin is reassigning
 
-if (isReassignment) {
-  if (!mongoose.Types.ObjectId.isValid(updateData.assignedTo)) {
-    throw new AppError("Invalid assigned user ID", 400);
-  }
+    let newAssignedUser = null;
 
-  newAssignedUser = await User.findOne({
-    _id: updateData.assignedTo,
-    isDeleted: false
-});
+    const isReassignment =
+      updateData.assignedTo &&
+      updateData.assignedTo.toString() !== task.assignedTo.toString();
 
-  if (!newAssignedUser) {
-    throw new AppError("Assigned user not found", 404);
-  }
-}
+    if (isReassignment) {
+      if (!mongoose.Types.ObjectId.isValid(updateData.assignedTo)) {
+        throw new AppError("Invalid assigned user ID", 400);
+      }
 
-  Object.assign(task, updateData);
+      newAssignedUser = await User.findOne({
+        _id: updateData.assignedTo,
+        isDeleted: false,
+      });
 
-  await task.save();
+      if (!newAssignedUser) {
+        throw new AppError("Assigned user not found", 404);
+      }
+    }
 
-  // Status change ka special log
+    Object.assign(task, updateData);
+
+    await task.save();
+
+    // Status change ka special log
     if (
       updateData.status &&
       oldValues.status &&
@@ -431,73 +351,66 @@ if (isReassignment) {
     // Reminder reschedule logic
     await handleReminderChanges(task, oldValues, updateData);
 
+    if (isReassignment) {
+      try {
+        const assignedBy = await User.findById(userId);
 
-  
-if (isReassignment) {
-  try {
-    const assignedBy = await User.findById(userId);
-
-  /*  await emailService.sendTaskAssignedEmail(
+        /*  await emailService.sendTaskAssignedEmail(
       task,
       newAssignedUser,
       assignedBy
     ); */
 
-    await emailQueue.add("send-task-assigned", {
-      task: {
-        _id: task._id,
-        title: task.title,
-        description: task.description,
-        priority: task.priority,
-        status: task.status,
-        dueDate: task.dueDate,
-      },
-      assignedUser: {
-        name: newAssignedUser.name,
-        email: newAssignedUser.email,
-      },
-       assignedBy: {
-        name: assignedBy.name,
-        email: assignedBy.email,
-      },
-    });
+        await emailQueue.add("send-task-assigned", {
+          task: {
+            _id: task._id,
+            title: task.title,
+            description: task.description,
+            priority: task.priority,
+            status: task.status,
+            dueDate: task.dueDate,
+          },
+          assignedUser: {
+            name: newAssignedUser.name,
+            email: newAssignedUser.email,
+          },
+          assignedBy: {
+            name: assignedBy.name,
+            email: assignedBy.email,
+          },
+        });
+      } catch (error) {
+        console.error("Task reassignment email queue failed:", error.message);
+      }
+    }
 
-  } catch (error) {
-    console.error("Task reassignment email queue failed:", error.message);
+    return await Task.findById(task._id)
+      .populate("createdBy", "name email")
+      .populate("assignedTo", "name email");
   }
-}
 
-  return await Task.findById(task._id)
-    .populate("createdBy", "name email")
-    .populate("assignedTo", "name email");
-}
-
-// Normal user permissions
+  // Normal user permissions
   // ------------------------------------------------
 
-  const isCreator =
-    task.createdBy.toString() === userId.toString();
+  const isCreator = task.createdBy.toString() === userId.toString();
 
-  const isAssignedUser =
-    task.assignedTo.toString() === userId.toString();
+  const isAssignedUser = task.assignedTo.toString() === userId.toString();
 
   // User-created task
   if (isCreator) {
-
     // User needs permission to manage their own created tasks
     const creator = await User.findById(userId);
 
     if (!creator) {
-        throw new AppError("User not found", 404);
+      throw new AppError("User not found", 404);
     }
 
     if (creator.canCreateTask !== true) {
-        throw new AppError(
-            "You do not have permission to manage your created tasks",
-            403
-        );
+      throw new AppError(
+        "You do not have permission to manage your created tasks",
+        403,
+      );
     }
-
 
     const allowedFields = [
       "title",
@@ -508,14 +421,11 @@ if (isReassignment) {
       "dueDate",
     ];
     const invalidFields = receivedFields.filter(
-      (field) => !allowedFields.includes(field)
+      (field) => !allowedFields.includes(field),
     );
 
     if (invalidFields.length > 0) {
-      throw new AppError(
-        `You cannot update: ${invalidFields.join(", ")}`,
-        400
-      );
+      throw new AppError(`You cannot update: ${invalidFields.join(", ")}`, 400);
     }
 
     // User cannot assign their own task to another user
@@ -523,10 +433,7 @@ if (isReassignment) {
       updateData.assignedTo &&
       updateData.assignedTo.toString() !== userId.toString()
     ) {
-      throw new AppError(
-        "You can assign your task only to yourself",
-        403
-      );
+      throw new AppError("You can assign your task only to yourself", 403);
     }
     Object.assign(task, updateData);
 
@@ -552,7 +459,7 @@ if (isReassignment) {
         req,
       });
     } else {
-       await logActivity({
+      await logActivity({
         actor: userId,
         actorRole: role,
         action: "TASK_UPDATED",
@@ -578,22 +485,17 @@ if (isReassignment) {
 
   // Admin-created task assigned to this user
   if (isAssignedUser) {
-
     const onlyStatusField =
-      receivedFields.length === 1 &&
-      receivedFields[0] === "status";
+      receivedFields.length === 1 && receivedFields[0] === "status";
 
     if (!onlyStatusField) {
-      throw new AppError(
-        "You can only update task status",
-        403
-      );
+      throw new AppError("You can only update task status", 403);
     }
 
     task.status = updateData.status;
     await task.save();
 
-     // Status change log
+    // Status change log
     if (oldValues.status !== updateData.status) {
       await logActivity({
         actor: userId,
@@ -620,10 +522,7 @@ if (isReassignment) {
   }
 
   // User has no access to this task
-  throw new AppError(
-    "You are not authorized to update this task",
-    403
-  );
+  throw new AppError("You are not authorized to update this task", 403);
 };
 
 // ============================================
@@ -642,7 +541,7 @@ const handleReminderChanges = async (task, oldValues, updateData) => {
       new Date(oldValues.dueDate).getTime() !==
         new Date(updateData.dueDate).getTime();
 
-        const statusChanged =
+    const statusChanged =
       updateData.status &&
       oldValues.status &&
       oldValues.status !== updateData.status;
@@ -657,7 +556,7 @@ const handleReminderChanges = async (task, oldValues, updateData) => {
       await Task.findByIdAndUpdate(task._id, {
         reminderJobIds: jobIds,
       });
-       console.log(`🔄 Rescheduled reminders for task ${task._id}`);
+      console.log(`🔄 Rescheduled reminders for task ${task._id}`);
     }
 
     if (statusChanged && updateData.status === "completed") {
@@ -670,8 +569,6 @@ const handleReminderChanges = async (task, oldValues, updateData) => {
     // Throw nahi karo — main update ho gaya, reminder adjust fail ho sakta hai
   }
 };
-
-
 
 const deleteTask = async (taskId, userId, role, req = null) => {
   if (!mongoose.Types.ObjectId.isValid(taskId)) {
@@ -689,13 +586,13 @@ const deleteTask = async (taskId, userId, role, req = null) => {
     task.isDeleted = true;
     task.deletedAt = new Date();
     task.deletedBy = userId;
-     await task.save();
-   // await Task.findByIdAndDelete(taskId);
+    await task.save();
+    // await Task.findByIdAndDelete(taskId);
 
-   //  Task delete hua, reminders cancel karo
-await reminderService.cancelTaskReminders(task);
+    //  Task delete hua, reminders cancel karo
+    await reminderService.cancelTaskReminders(task);
 
-   // Log delete
+    // Log delete
     await logActivity({
       actor: userId,
       actorRole: role,
@@ -712,33 +609,33 @@ await reminderService.cancelTaskReminders(task);
 
   //Normal user can delete only the task created by themselves
   const isCreator = task.createdBy.toString() === userId.toString();
-  if(!isCreator) {
+  if (!isCreator) {
     throw new AppError("You can only delete tasks created by yourself", 403);
   }
 
   const user = await User.findById(userId);
 
-if (!user) {
+  if (!user) {
     throw new AppError("User not found", 404);
-}
+  }
 
-if (user.canCreateTask !== true) {
+  if (user.canCreateTask !== true) {
     throw new AppError(
-        "You do not have permission to delete your created tasks",
-        403
+      "You do not have permission to delete your created tasks",
+      403,
     );
-}
+  }
 
   //await Task.findByIdAndDelete(taskId);
   task.isDeleted = true;
   task.deletedAt = new Date();
   task.deletedBy = userId;
-    await task.save();
+  await task.save();
 
-    //Task delete hua, reminders cancel karo
-await reminderService.cancelTaskReminders(task);
+  //Task delete hua, reminders cancel karo
+  await reminderService.cancelTaskReminders(task);
 
-     // Log delete
+  // Log delete
   await logActivity({
     actor: userId,
     actorRole: role,
@@ -753,7 +650,10 @@ await reminderService.cancelTaskReminders(task);
   return task;
 };
 
-
 module.exports = {
-  createTask, getTasks, getTaskById, updateTask, deleteTask
+  createTask,
+  getTasks,
+  getTaskById,
+  updateTask,
+  deleteTask,
 };

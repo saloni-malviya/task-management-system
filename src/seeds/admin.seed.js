@@ -5,43 +5,40 @@ const connectDB = require("../config/db");
 const env = require("../config/env");
 
 const createAdmin = async () => {
-    try {
-        await connectDB();
+  try {
+    await connectDB();
 
-        const adminEmail = "admin@example.com";
-        const adminPassword = "Admin@123";
+    const adminEmail = "admin@example.com";
+    const adminPassword = "Admin@123";
 
-        const existingAdmin = await User.findOne({
-            email: adminEmail
-        });
+    const existingAdmin = await User.findOne({
+      email: adminEmail,
+    });
 
-        if (existingAdmin) {
-            console.log("Admin already exists");
-            process.exit(0);
-        }
-
-        const hashedPassword = await bcrypt.hash(
-            adminPassword,
-            10
-        );
-
-        await User.create({
-            name: "System Admin",
-            email: adminEmail,
-            password: hashedPassword,
-            role: "admin",
-            isEmailVerified: true
-        });
-
-        console.log("Admin created successfully");
-        console.log("Email:", adminEmail);
-        console.log("Password:", adminPassword);
-
-        process.exit(0);
-    } catch (error) {
-        console.error("Admin creation failed:", error.message);
-        process.exit(1);
+    if (existingAdmin) {
+      console.log("Admin already exists");
+      process.exit(0);
     }
+
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
+
+    await User.create({
+      name: "System Admin",
+      email: adminEmail,
+      password: hashedPassword,
+      role: "admin",
+      isEmailVerified: true,
+    });
+
+    console.log("Admin created successfully");
+    console.log("Email:", adminEmail);
+    console.log("Password:", adminPassword);
+
+    process.exit(0);
+  } catch (error) {
+    console.error("Admin creation failed:", error.message);
+    process.exit(1);
+  }
 };
 
 createAdmin();

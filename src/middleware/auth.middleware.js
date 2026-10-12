@@ -1,5 +1,4 @@
 const jwt = require("jsonwebtoken");
-
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const env = require("../config/env");
@@ -22,13 +21,10 @@ const protect = asyncHandler(async (req, res, next) => {
     throw new AppError("Invalid or expired token", 401);
   }
 
-   // refresh token ko access token ki jagah use na karne do
-    if (decoded.type === "refresh") {
-        throw new AppError(
-            "Cannot use refresh token as access token",
-            401
-        );
-    }
+  // refresh token ko access token ki jagah use na karne do
+  if (decoded.type === "refresh") {
+    throw new AppError("Cannot use refresh token as access token", 401);
+  }
 
   //4. find user
   const user = await User.findOne({ _id: decoded.userId, isDeleted: false });

@@ -37,25 +37,25 @@ const getDashboardStats = async () => {
 };
 
 const restoreTask = async (taskId, adminId = null, req = null) => {
-    if (!mongoose.Types.ObjectId.isValid(taskId)) {
-        throw new AppError("Invalid task ID", 400);
-    }
+  if (!mongoose.Types.ObjectId.isValid(taskId)) {
+    throw new AppError("Invalid task ID", 400);
+  }
 
-    const task = await Task.findOne({
-        _id: taskId,
-        isDeleted: true
-    });
+  const task = await Task.findOne({
+    _id: taskId,
+    isDeleted: true,
+  });
 
-    if (!task) {
-        throw new AppError("Deleted task not found", 404);
-    }
+  if (!task) {
+    throw new AppError("Deleted task not found", 404);
+  }
 
-    task.isDeleted = false;
-    task.deletedAt = null;
-    task.deletedBy = null;
-    await task.save();
+  task.isDeleted = false;
+  task.deletedAt = null;
+  task.deletedBy = null;
+  await task.save();
 
-    // Log restore
+  // Log restore
   if (adminId) {
     await logActivity({
       actor: adminId,
@@ -68,34 +68,34 @@ const restoreTask = async (taskId, adminId = null, req = null) => {
     });
   }
 
-    return task;
+  return task;
 };
 
 const restoreUser = async (userId, adminId = null, req = null) => {
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-        throw new AppError("Invalid user ID", 400);
-    }
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    throw new AppError("Invalid user ID", 400);
+  }
 
-    const user = await User.findOne({
-        _id: userId,
-        isDeleted: true
-    });
+  const user = await User.findOne({
+    _id: userId,
+    isDeleted: true,
+  });
 
-    if (!user) {
-        throw new AppError("Deleted user not found", 404);
-    }
+  if (!user) {
+    throw new AppError("Deleted user not found", 404);
+  }
 
-    user.isDeleted = false;
-    user.deletedAt = null;
-    user.deletedBy = null;
+  user.isDeleted = false;
+  user.deletedAt = null;
+  user.deletedBy = null;
 
-    // Saare purane tokens invalid karo
-    user.tokenVersion += 1;
-    user.refreshTokenVersion += 1;
+  // Saare purane tokens invalid karo
+  user.tokenVersion += 1;
+  user.refreshTokenVersion += 1;
 
-    await user.save();
+  await user.save();
 
-    //  Log restore
+  //  Log restore
   if (adminId) {
     await logActivity({
       actor: adminId,
@@ -108,9 +108,11 @@ const restoreUser = async (userId, adminId = null, req = null) => {
     });
   }
 
-    return user;
+  return user;
 };
 
 module.exports = {
-  getDashboardStats, restoreTask, restoreUser
+  getDashboardStats,
+  restoreTask,
+  restoreUser,
 };

@@ -14,27 +14,27 @@ const getDashboardStats = asyncHandler(async (req, res) => {
 });
 
 const restoreTask = asyncHandler(async (req, res) => {
-    const task = await adminService.restoreTask(req.params.id, req.user.userId, req );
+  const task = await adminService.restoreTask(
+    req.params.id,
+    req.user.userId,
+    req,
+  );
 
-    return sendResponse(
-        res,
-        200,
-        "Task restored successfully",
-        task
-    );
+  return sendResponse(res, 200, "Task restored successfully", task);
 });
 
 const restoreUser = asyncHandler(async (req, res) => {
-    const user = await adminService.restoreUser(req.params.id, req.user.userId, req);
+  const user = await adminService.restoreUser(
+    req.params.id,
+    req.user.userId,
+    req,
+  );
 
-    return sendResponse(
-        res,
-        200,
-        "User restored successfully",
-        user
-    );
+  return sendResponse(res, 200, "User restored successfully", user);
 });
 
 module.exports = {
-  getDashboardStats, restoreTask, restoreUser
+  getDashboardStats,
+  restoreTask,
+  restoreUser,
 };

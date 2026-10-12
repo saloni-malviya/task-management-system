@@ -7,8 +7,8 @@ const REMINDER_MINUTE = 0;
 
 // ⚠️ TESTING ke liye ye use karo (delay in seconds)
 // Production me isse comment karo aur neeche wala use karo
-const TEST_MODE = false;             // ← Testing ke waqt true karo
-const TEST_DELAY_SECONDS = 30;       // ← 30 sec me reminder chale
+const TEST_MODE = false; // ← Testing ke waqt true karo
+const TEST_DELAY_SECONDS = 30; // ← 30 sec me reminder chale
 
 /**
  * Ek reminder time calculate karo
@@ -55,7 +55,7 @@ const scheduleTaskReminders = async (task) => {
       // Agar past me hai (negative delay), skip karo
       if (delay < 0) {
         console.log(
-          `⏭️ Skipping ${reminder.type} reminder for task ${task._id} (already past)`
+          `⏭️ Skipping ${reminder.type} reminder for task ${task._id} (already past)`,
         );
         continue;
       }
@@ -68,17 +68,17 @@ const scheduleTaskReminders = async (task) => {
           taskId: task._id.toString(),
           type: reminder.type,
         },
-        { delay }
+        { delay },
       );
 
       jobIds.push(job.id);
       console.log(
-        `📅 Scheduled ${reminder.type} reminder for task ${task._id} (job: ${job.id}, delay: ${Math.round(delay / 1000)}s)`
+        `📅 Scheduled ${reminder.type} reminder for task ${task._id} (job: ${job.id}, delay: ${Math.round(delay / 1000)}s)`,
       );
     } catch (error) {
       console.error(
         `❌ Failed to schedule ${reminder.type} reminder:`,
-        error.message
+        error.message,
       );
     }
   }
@@ -91,9 +91,7 @@ const scheduleTaskReminders = async (task) => {
  */
 const cancelTaskReminders = async (task) => {
   // Task se job IDs nikalo (select false tha, isliye explicit select)
-  const taskWithJobs = await Task.findById(task._id).select(
-    "+reminderJobIds"
-  );
+  const taskWithJobs = await Task.findById(task._id).select("+reminderJobIds");
 
   if (
     !taskWithJobs ||

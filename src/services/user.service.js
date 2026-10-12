@@ -5,79 +5,63 @@ const Task = require("../models/Task");
 const { logActivity } = require("./activityLog.service");
 
 const getProfile = async (userId) => {
-    const user = await User.findOne({ _id: userId, isDeleted: false });
-
-    if (!user) {
-        throw new AppError("User not found", 404);
-    }
-
-    return user;
+  const user = await User.findOne({ _id: userId, isDeleted: false });
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+  return user;
 };
 const updateProfile = async (userId, data, req = null) => {
-    const allowedFields = ["name", "currentPassword", "newPassword"];
+  const allowedFields = ["name", "currentPassword", "newPassword"];
+  const invalidFields = Object.keys(data).filter(
+    (field) => !allowedFields.includes(field),
+  );
 
-    const invalidFields = Object.keys(data).filter(
-        (field) => !allowedFields.includes(field)
+  if (invalidFields.length > 0) {
+    throw new AppError(`Fields not allowed: ${invalidFields.join(", ")}`, 400);
+  }
+
+  // mtlb new name ya password diya hai update k liye, user ne
+  const hasName = data.name !== undefined;
+  const hasNewPassword = data.newPassword !== undefined;
+
+  if (!hasName && !hasNewPassword) {
+    throw new AppError("Please provide name or newPassword to update", 400);
+  }
+
+  //find user with password
+  const user = await User.findById(userId).select("+password");
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  //update name, if provided (mtlb name update kro, agr diya h to)
+  if (hasName) {
+    user.name = data.name;
+  }
+
+  //update password, if provided
+  if (hasNewPassword) {
+    if (!data.currentPassword) {
+      throw new AppError("Current password is required", 400);
+    }
+
+    //current password verify kro, means current password sahi h ya nhi
+    const isCurrentPasswordCorrect = await bcrypt.compare(
+      data.currentPassword,
+      user.password,
     );
 
-    if (invalidFields.length > 0) {
-        throw new AppError(
-            `Fields not allowed: ${invalidFields.join(", ")}`,
-            400
-        );
+    if (!isCurrentPasswordCorrect) {
+      throw new AppError("Current password is incorrect", 401);
     }
-    
-    // mtlb new name ya password diya hai update k liye, user ne
-    const hasName = data.name !== undefined;
-    const hasNewPassword = data.newPassword !== undefined;
+    // agr current pass sahi nikla, then fir newPass hash kro
+    user.password = await bcrypt.hash(data.newPassword, 10);
+  }
 
-    if (!hasName && !hasNewPassword) {
-        throw new AppError(
-            "Please provide name or newPassword to update",
-            400
-        );
-    }
-      
-    //find user with password
-    const user = await User.findById(userId).select("+password");
+  await user.save();
 
-    if (!user) {
-        throw new AppError("User not found", 404);
-    }
-
-    //update name, if provided (mtlb name update kro, agr diya h to)
-    if (hasName) {
-        user.name = data.name;
-    }
-
-    //update password, if provided
-    if (hasNewPassword) {
-        if (!data.currentPassword) {
-            throw new AppError(
-                "Current password is required",
-                400
-            );
-        }
-
-        //current password verify kro, means current password sahi h ya nhi   
-        const isCurrentPasswordCorrect = await bcrypt.compare(
-            data.currentPassword,
-            user.password
-        );
-
-        if (!isCurrentPasswordCorrect) {
-            throw new AppError(
-                "Current password is incorrect",
-                401
-            );
-        }
-           // agr current pass sahi nikla, then fir newPass hash kro
-        user.password = await bcrypt.hash(data.newPassword, 10);
-    }
-
-    await user.save();
-
-    //  Log profile update
+  //  Log profile update
   const changedFields = [];
   if (hasName) changedFields.push("name");
   if (hasNewPassword) changedFields.push("password");
@@ -93,38 +77,34 @@ const updateProfile = async (userId, data, req = null) => {
     req,
   });
 
-    const userObject = user.toObject();
-    delete userObject.password;
+  const userObject = user.toObject();
+  delete userObject.password;
 
-    return userObject;
+  return userObject;
 };
 
+const getAllUsers = async (page = 1, limit = 10, query = {}) => {
+  // const users = await User.find();
+  const { search } = query;
 
-const getAllUsers = async (page=1, limit=10, query = {}) => {
-   // const users = await User.find();
-   const { search } = query;
+  const skip = (page - 1) * limit;
 
-   const skip = (page-1) * limit;
+  //pipeline build
+  const pipeline = [];
 
-   //pipeline build
-   const pipeline = [];
+  const includeDeleted = query.includeDeleted === "true";
+  const onlyDeleted = query.onlyDeleted === "true";
 
-   const includeDeleted = query.includeDeleted === "true";
-   const onlyDeleted = query.onlyDeleted === "true";
-
-   if(onlyDeleted) {
-    pipeline.push({ $match: { isDeleted: true }});
-   }
-
-else if (!includeDeleted) {
+  if (onlyDeleted) {
+    pipeline.push({ $match: { isDeleted: true } });
+  } else if (!includeDeleted) {
     pipeline.push({
-        $match: { isDeleted: false }
+      $match: { isDeleted: false },
     });
-}
+  }
 
-    
-   //Tasks ke sath join (taskcount nikalne k liye)
-   pipeline.push({
+  //Tasks ke sath join (taskcount nikalne k liye)
+  pipeline.push({
     $lookup: {
       from: "tasks",
       let: { userId: "$_id" },
@@ -132,7 +112,7 @@ else if (!includeDeleted) {
         {
           $match: {
             $expr: {
-              $eq: ["$assignedTo", "$$userId"]
+              $eq: ["$assignedTo", "$$userId"],
             },
           },
         },
@@ -148,168 +128,149 @@ else if (!includeDeleted) {
   pipeline.push({
     $addFields: {
       taskCount: {
-        $ifNull: [
-          { $arrayElemAt: ["$taskStats.total", 0] },
-          0,
-        ],
+        $ifNull: [{ $arrayElemAt: ["$taskStats.total", 0] }, 0],
       },
     },
   });
 
   //search filter
-  if(search && search.trim()) {
+  if (search && search.trim()) {
     const searchLower = search.trim().toLowerCase();
 
     //search condition
     const stringSearchConditions = [
-        {
-            name: {
-                $regex: search.trim(),
-                $options: "i",
-            },
+      {
+        name: {
+          $regex: search.trim(),
+          $options: "i",
         },
-        {
-            email: {
-                $regex: search.trim(),
-                $options: "i",
-
-            },
+      },
+      {
+        email: {
+          $regex: search.trim(),
+          $options: "i",
         },
-        {
-            role: {
-                $regex: search.trim(),
-                $options: "i",
-
-            },
+      },
+      {
+        role: {
+          $regex: search.trim(),
+          $options: "i",
         },
+      },
     ];
 
     //agr search number hai, taskcount se match kro
-    if(!isNaN(searchLower)) {
-        stringSearchConditions.push({
-            $expr: {
-                $regexMatch: {
-                    input: { $toString: "$taskCount" },
-                    regex: search.trim(),
-                },
-            },
-
-        });
+    if (!isNaN(searchLower)) {
+      stringSearchConditions.push({
+        $expr: {
+          $regexMatch: {
+            input: { $toString: "$taskCount" },
+            regex: search.trim(),
+          },
+        },
+      });
     }
-  pipeline.push({
-    $match: {
+    pipeline.push({
+      $match: {
         $or: stringSearchConditions,
-    },
-  });
-}
+      },
+    });
+  }
 
-pipeline.push({
+  pipeline.push({
     $project: {
       name: 1,
       email: 1,
       role: 1,
       createdAt: 1,
-      taskCount: 1
-    }
+      taskCount: 1,
+    },
   });
 
   pipeline.push({
     $sort: {
-      createdAt: -1
-    }
-  }); 
+      createdAt: -1,
+    },
+  });
 
   //pagination + total count ek sath
   pipeline.push({
-            $facet: {
-                users: [
-                    { $skip: skip },
-                    { $limit: limit },
-                ],
-                totalCount: [
-                    { $count: "total" },
-                ],
-            },
-        });
+    $facet: {
+      users: [{ $skip: skip }, { $limit: limit }],
+      totalCount: [{ $count: "total" }],
+    },
+  });
 
-        const result = await User.aggregate(pipeline);
-const users = result[0]?.users || [];
+  const result = await User.aggregate(pipeline);
+  const users = result[0]?.users || [];
 
-    const totalUsers =
-        result[0]?.totalCount[0]?.total || 0;
+  const totalUsers = result[0]?.totalCount[0]?.total || 0;
 
-    return {
-        users,
-        pagination: {
-            currentPage: page,
-            totalPages: Math.ceil(totalUsers / limit),
-            totalUsers,
-            limit
-        }
-    };
+  return {
+    users,
+    pagination: {
+      currentPage: page,
+      totalPages: Math.ceil(totalUsers / limit),
+      totalUsers,
+      limit,
+    },
+  };
 
   //  return users;
 };
 
-
 const getUserById = async (userId) => {
-    const user = await User.findOne({ _id: userId, isDeleted: false });
+  const user = await User.findOne({ _id: userId, isDeleted: false });
 
-    if (!user) {
-        throw new AppError("User not found", 404);
-    }
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
 
-    return user;
+  return user;
 };
 const updateUserById = async (userId, data, adminId = null, req = null) => {
-const allowedFields = ["name", "role", "canCreateTask"];
+  const allowedFields = ["name", "role", "canCreateTask"];
 
-    const invalidFields = Object.keys(data).filter(
-        (field) => !allowedFields.includes(field)
-    );
+  const invalidFields = Object.keys(data).filter(
+    (field) => !allowedFields.includes(field),
+  );
 
-    if (invalidFields.length > 0) {
-        throw new AppError(
-            `Fields not allowed: ${invalidFields.join(", ")}`,
-            400
-        );
-    }
+  if (invalidFields.length > 0) {
+    throw new AppError(`Fields not allowed: ${invalidFields.join(", ")}`, 400);
+  }
 
-    if (Object.keys(data).length === 0) {
-        throw new AppError(
-            "Please provide at least one field to update",
-            400
-        );
-    }
+  if (Object.keys(data).length === 0) {
+    throw new AppError("Please provide at least one field to update", 400);
+  }
 
-    const user = await User.findById(userId);
+  const user = await User.findById(userId);
 
-    if (!user) {
-        throw new AppError("User not found", 404);
-    }
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
 
-    // Change track karo
+  // Change track karo
   const oldValues = {
     name: user.name,
     role: user.role,
     canCreateTask: user.canCreateTask,
   };
 
-    if (data.name !== undefined) {
-        user.name = data.name;
-    }
+  if (data.name !== undefined) {
+    user.name = data.name;
+  }
 
-    if (data.role !== undefined) {
-        user.role = data.role;
-    }
+  if (data.role !== undefined) {
+    user.role = data.role;
+  }
 
-    if (data.canCreateTask !== undefined) {
-        user.canCreateTask = data.canCreateTask;
-    }
+  if (data.canCreateTask !== undefined) {
+    user.canCreateTask = data.canCreateTask;
+  }
 
-    await user.save();
+  await user.save();
 
-     // ✅ NAYA — Log role/permission change
+  // ✅ NAYA — Log role/permission change
   const action =
     data.role !== undefined || data.canCreateTask !== undefined
       ? "USER_ROLE_CHANGED"
@@ -330,48 +291,46 @@ const allowedFields = ["name", "role", "canCreateTask"];
     req,
   });
 
-    return user;
+  return user;
 };
 
 const deleteUserById = async (userId, requesterId, req = null) => {
-    const user = await User.findOne({ _id: userId, isDeleted: false });
-    if (!user) {
-        throw new AppError("User not found", 404);
+  const user = await User.findOne({ _id: userId, isDeleted: false });
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  if (userId === requesterId) {
+    throw new AppError(
+      "You cannot delete your own account through this API",
+      403,
+    );
+  }
+
+  if (user.role === "admin") {
+    const adminCount = await User.countDocuments({
+      role: "admin",
+      isDeleted: false,
+    });
+
+    if (adminCount <= 1) {
+      throw new AppError("Cannot delete the last admin", 403);
     }
+  }
 
-    if (userId === requesterId) {
-        throw new AppError(
-            "You cannot delete your own account through this API",
-            403
-        );
-    }
+  // await User.findByIdAndDelete(userId);
+  //  Soft delete
+  user.isDeleted = true;
+  user.deletedAt = new Date();
+  user.deletedBy = requesterId;
 
-    if (user.role === "admin") {
-        const adminCount = await User.countDocuments({
-            role: "admin", isDeleted: false,
-        });
+  // Delete pe bhi tokens invalid karo
+  user.tokenVersion += 1;
+  user.refreshTokenVersion += 1;
 
-        if (adminCount <= 1) {
-            throw new AppError(
-                "Cannot delete the last admin",
-                403
-            );
-        }
-    }
+  await user.save();
 
-   // await User.findByIdAndDelete(userId);
-   //  Soft delete
-    user.isDeleted = true;
-    user.deletedAt = new Date();
-    user.deletedBy = requesterId;
-
-     // Delete pe bhi tokens invalid karo
-    user.tokenVersion += 1;
-    user.refreshTokenVersion += 1;
-
-    await user.save();
-
-    // ✅ NAYA — Log user delete
+  // ✅ NAYA — Log user delete
   await logActivity({
     actor: requesterId,
     actorRole: "admin",
@@ -382,54 +341,57 @@ const deleteUserById = async (userId, requesterId, req = null) => {
     metadata: { softDelete: true },
     req,
   });
-
 };
 
 const getMyTaskStats = async (userId) => {
-    // User ke tasks ka filter:
-    // - Jo usne banaye (createdBy)
-    // - Ya jo usko assign hue (assignedTo)
-    const userFilter = {
-        isDeleted: false,
-        $or: [
-            { createdBy: userId },
-            { assignedTo: userId },
-        ],
-    };
+  // User ke tasks ka filter:
+  // - Jo usne banaye (createdBy)
+  // - Ya jo usko assign hue (assignedTo)
+  const userFilter = {
+    isDeleted: false,
+    $or: [{ createdBy: userId }, { assignedTo: userId }],
+  };
 
-    const [
-        totalTasks,
-        pendingTasks,
-        inProgressTasks,
-        completedTasks,
-        highPriorityTasks,
-    ] = await Promise.all([
-        Task.countDocuments(userFilter),
+  const [
+    totalTasks,
+    pendingTasks,
+    inProgressTasks,
+    completedTasks,
+    highPriorityTasks,
+  ] = await Promise.all([
+    Task.countDocuments(userFilter),
 
-        Task.countDocuments({
-            $and: [userFilter, { status: "pending" }],
-        }),
+    Task.countDocuments({
+      $and: [userFilter, { status: "pending" }],
+    }),
 
-        Task.countDocuments({
-            $and: [userFilter, { status: "in-progress" }],
-        }),
+    Task.countDocuments({
+      $and: [userFilter, { status: "in-progress" }],
+    }),
 
-        Task.countDocuments({
-            $and: [userFilter, { status: "completed" }],
-        }),
+    Task.countDocuments({
+      $and: [userFilter, { status: "completed" }],
+    }),
 
-        Task.countDocuments({
-            $and: [userFilter, { priority: "high" }],
-        }),
-    ]);
+    Task.countDocuments({
+      $and: [userFilter, { priority: "high" }],
+    }),
+  ]);
 
-    return {
-        totalTasks,
-        pendingTasks,
-        inProgressTasks,
-        completedTasks,
-        highPriorityTasks,
-    };
+  return {
+    totalTasks,
+    pendingTasks,
+    inProgressTasks,
+    completedTasks,
+    highPriorityTasks,
+  };
 };
 module.exports = {
-    getProfile, updateProfile, getAllUsers, getUserById, updateUserById, deleteUserById, getMyTaskStats};
+  getProfile,
+  updateProfile,
+  getAllUsers,
+  getUserById,
+  updateUserById,
+  deleteUserById,
+  getMyTaskStats,
+};

@@ -55,31 +55,31 @@ const taskSchema = new mongoose.Schema(
     isDeleted: {
       type: Boolean,
       default: false,
-      index: true
+      index: true,
     },
 
     deletedAt: {
       type: Date,
-      default: null
-        },
+      default: null,
+    },
 
-      deletedBy: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
-            default: null
-      },
-      
-      // Reminder job IDs
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    // Reminder job IDs
     reminderJobIds: {
       type: [String],
       default: [],
       select: false, // API response me normally nahi chahiye
-    }
-
+    },
   },
+
   {
     timestamps: true,
-  }
+  },
 );
 
 module.exports = mongoose.model("Task", taskSchema);

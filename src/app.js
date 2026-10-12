@@ -9,7 +9,7 @@ const { globalLimiter } = require("./middleware/rateLimit.middleware");
 
 const authRoutes = require("./routes/auth.routes");
 const userRoutes = require("./routes/user.routes");
-const taskRoutes =  require("./routes/task.routes");
+const taskRoutes = require("./routes/task.routes");
 const adminRoutes = require("./routes/admin.routes");
 const activityLogRoutes = require("./routes/activityLog.routes");
 
@@ -28,10 +28,10 @@ app.use(helmet());
 app.use("/api", globalLimiter);
 
 app.get("/api/v1/health", (req, res) => {
-    res.status(200).json({
-        success: true,
-        message: "Task Management API is running"
-    });
+  res.status(200).json({
+    success: true,
+    message: "Task Management API is running",
+  });
 });
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/users", userRoutes);

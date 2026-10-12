@@ -31,7 +31,11 @@ const emailWorker = new Worker(
 
       case "send-task-assigned": {
         const { task, assignedUser, assignedBy } = data;
-        await emailService.sendTaskAssignedEmail(task, assignedUser, assignedBy);
+        await emailService.sendTaskAssignedEmail(
+          task,
+          assignedUser,
+          assignedBy,
+        );
         break;
       }
 
@@ -43,8 +47,8 @@ const emailWorker = new Worker(
   },
   {
     connection: redisConnection,
-    concurrency: 5,   // Ek saath 5 emails process karega
-  }
+    concurrency: 5, // Ek saath 5 emails process karega
+  },
 );
 
 emailWorker.on("completed", (job) => {
@@ -53,7 +57,7 @@ emailWorker.on("completed", (job) => {
 
 emailWorker.on("failed", (job, err) => {
   console.error(
-    `❌ Email job failed: ${job.name} (id: ${job.id}) — ${err.message}`
+    `❌ Email job failed: ${job.name} (id: ${job.id}) — ${err.message}`,
   );
 });
 

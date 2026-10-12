@@ -18,7 +18,10 @@ router.get(
   authorizeRoles("admin"),
   asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const limit = Math.min(
+      100,
+      Math.max(1, parseInt(req.query.limit, 10) || 20),
+    );
 
     const filters = {};
     if (req.query.actor) filters.actor = req.query.actor;
@@ -32,11 +35,11 @@ router.get(
     const result = await activityLogService.getActivityLogs(
       filters,
       page,
-      limit
+      limit,
     );
 
     return sendResponse(res, 200, "Activity logs fetched successfully", result);
-  })
+  }),
 );
 
 /**
@@ -48,7 +51,10 @@ router.get(
   protect,
   asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const limit = Math.min(
+      50,
+      Math.max(1, parseInt(req.query.limit, 10) || 20),
+    );
 
     const filters = { actor: req.user.userId };
     if (req.query.action) filters.action = req.query.action;
@@ -59,11 +65,11 @@ router.get(
     const result = await activityLogService.getActivityLogs(
       filters,
       page,
-      limit
+      limit,
     );
 
     return sendResponse(res, 200, "Your activity fetched successfully", result);
-  })
+  }),
 );
 
 /**
@@ -82,23 +88,26 @@ router.get(
     }
 
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const limit = Math.min(
+      50,
+      Math.max(1, parseInt(req.query.limit, 10) || 20),
+    );
 
     const filters = { entityType, entityId };
 
     const result = await activityLogService.getActivityLogs(
       filters,
       page,
-      limit
+      limit,
     );
 
     return sendResponse(
       res,
       200,
       `${entityType} activity fetched successfully`,
-      result
+      result,
     );
-  })
+  }),
 );
 
 module.exports = router;

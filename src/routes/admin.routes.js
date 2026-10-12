@@ -1,8 +1,7 @@
-
 const express = require("express");
 const router = express.Router();
 
-const protect  = require("../middleware/auth.middleware");
+const protect = require("../middleware/auth.middleware");
 const authorizeRoles = require("../middleware/role.middleware");
 const adminController = require("../controllers/admin.controller");
 
@@ -13,23 +12,23 @@ router.get(
   "/stats",
   protect,
   authorizeRoles("admin"),
-  adminController.getDashboardStats
+  adminController.getDashboardStats,
 );
 
 router.post(
-    "/tasks/:id/restore",
-    protect,
-    authorizeRoles("admin"),
-    writeLimiter,
-    adminController.restoreTask
+  "/tasks/:id/restore",
+  protect,
+  authorizeRoles("admin"),
+  writeLimiter,
+  adminController.restoreTask,
 );
 
 router.post(
-    "/users/:id/restore",
-    protect,
-    authorizeRoles("admin"),
-    writeLimiter,
-    adminController.restoreUser
+  "/users/:id/restore",
+  protect,
+  authorizeRoles("admin"),
+  writeLimiter,
+  adminController.restoreUser,
 );
 
 module.exports = router;

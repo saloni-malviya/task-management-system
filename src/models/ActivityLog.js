@@ -56,7 +56,7 @@ const activityLogSchema = new mongoose.Schema(
       index: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Performance indexes
@@ -67,7 +67,7 @@ activityLogSchema.index({ action: 1, createdAt: -1 });
 // 90 din baad auto-delete (TTL)
 activityLogSchema.index(
   { createdAt: 1 },
-  { expireAfterSeconds: 90 * 24 * 3600 }
+  { expireAfterSeconds: 90 * 24 * 3600 },
 );
 
 module.exports = mongoose.model("ActivityLog", activityLogSchema);

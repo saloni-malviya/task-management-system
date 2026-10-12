@@ -43,24 +43,24 @@ const userSchema = new mongoose.Schema(
 
     refreshTokenVersion: {
       type: Number,
-      default: 0
-},
-        isDeleted: {
-            type: Boolean,
-            default: false,
-            index: true
-        },
+      default: 0,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
 
-        deletedAt: {
-            type: Date,
-            default: null
-        },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
 
-        deletedBy: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
-            default: null
-        },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
 
     otpHash: {
       type: String,

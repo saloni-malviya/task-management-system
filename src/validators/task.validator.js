@@ -28,9 +28,7 @@ const createTaskValidator = [
   body("status")
     .optional()
     .isIn(["pending", "in-progress", "completed"])
-    .withMessage(
-      "Status must be pending, in-progress or completed"
-    ),
+    .withMessage("Status must be pending, in-progress or completed"),
 
   body("dueDate")
     .notEmpty()
@@ -38,7 +36,6 @@ const createTaskValidator = [
     .isISO8601()
     .withMessage("Due date must be a valid date"),
 ];
-
 
 const updateTaskValidator = [
   body("title")
@@ -77,5 +74,6 @@ const updateTaskValidator = [
 ];
 
 module.exports = {
-  createTaskValidator, updateTaskValidator
+  createTaskValidator,
+  updateTaskValidator,
 };

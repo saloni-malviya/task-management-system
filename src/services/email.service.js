@@ -35,27 +35,19 @@ Task Management System
   return transporter.sendMail(mailOptions);
 };
 
-const sendPasswordResetOtpEmail = async (
-    user,
-    otp
-) => {
-    if (!user?.email) {
-        throw new Error(
-            "User email is missing"
-        );
-    }
+const sendPasswordResetOtpEmail = async (user, otp) => {
+  if (!user?.email) {
+    throw new Error("User email is missing");
+  }
 
-    const mailOptions = {
-        from:
-            process.env.EMAIL_FROM ||
-            process.env.SMTP_USER,
+  const mailOptions = {
+    from: process.env.EMAIL_FROM || process.env.SMTP_USER,
 
-        to: user.email,
+    to: user.email,
 
-        subject:
-            "Password Reset OTP - Task Management System",
+    subject: "Password Reset OTP - Task Management System",
 
-        text: `
+    text: `
 Hello ${user.name},
 
 We received a request to reset your password.
@@ -72,24 +64,22 @@ If you did not request a password reset, please ignore this email.
 
 Regards,
 Task Management System
-`
-    };
+`,
+  };
 
-    return transporter.sendMail(
-        mailOptions
-    );
+  return transporter.sendMail(mailOptions);
 };
 
 const sendEmailVerificationOtpEmail = async (user, otp) => {
-    if (!user?.email) {
-        throw new Error("User email is missing");
-    }
+  if (!user?.email) {
+    throw new Error("User email is missing");
+  }
 
-    const mailOptions = {
-        from: process.env.EMAIL_FROM || process.env.SMTP_USER,
-        to: user.email,
-        subject: "Verify Your Email - Task Management System",
-        text: `
+  const mailOptions = {
+    from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+    to: user.email,
+    subject: "Verify Your Email - Task Management System",
+    text: `
 Hello ${user.name},
 
 Welcome to Task Management System!
@@ -108,10 +98,10 @@ If you did not create this account, please ignore this email.
 
 Regards,
 Task Management System
-`
-    };
+`,
+  };
 
-    return transporter.sendMail(mailOptions);
+  return transporter.sendMail(mailOptions);
 };
 
 const sendTaskReminderEmail = async (task, assignedUser, type) => {
@@ -182,5 +172,8 @@ Task Management System
 };
 
 module.exports = {
-  sendTaskAssignedEmail, sendPasswordResetOtpEmail, sendEmailVerificationOtpEmail, sendTaskReminderEmail,
+  sendTaskAssignedEmail,
+  sendPasswordResetOtpEmail,
+  sendEmailVerificationOtpEmail,
+  sendTaskReminderEmail,
 };
