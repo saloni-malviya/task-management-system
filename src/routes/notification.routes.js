@@ -9,12 +9,18 @@ const {
   markAllAsRead,
   deleteNotification,
   clearAllRead,
+  registerFcmToken,
+  unregisterFcmToken
 } = require("../controllers/notification.controller");
 
 const { writeLimiter } = require("../middleware/rateLimit.middleware");
 
 // ⚠️ IMPORTANT: Specific routes PEHLE likhna
 // Warna Express /:id ko match kar lega
+
+// FCM token registration (specific routes pehle)
+router.post("/register-token", protect, writeLimiter, registerFcmToken);
+router.delete("/unregister-token", protect, writeLimiter, unregisterFcmToken);
 
 // Get unread count (bell icon ke liye)
 router.get("/unread-count", protect, getUnreadCount);
@@ -33,5 +39,6 @@ router.patch("/:id/read", protect, writeLimiter, markAsRead);
 
 // Delete single notification
 router.delete("/:id", protect, writeLimiter, deleteNotification);
+
 
 module.exports = router;

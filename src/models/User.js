@@ -110,6 +110,14 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    // ===== FCM TOKENS (NAYA — Option B) =====
+    fcmTokens: {
+      type: [String],
+      default: [],
+      select: false, // API response mein nahi jaayenge
+    },
+
+
     resetPasswordTokenVersion: {
       type: Number,
       default: 0,

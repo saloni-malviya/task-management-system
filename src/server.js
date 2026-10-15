@@ -4,9 +4,13 @@ const connectDB = require("./config/db");
 const redisConnection = require("./config/redis");
 const emailWorker = require("./queues/workers/email.worker");
 const reminderWorker = require("./queues/workers/reminder.worker");
+const { initializeFirebase } = require("./config/firebase"); // ← NAYA
 
 const startServer = async () => {
   await connectDB();
+
+  // Firebase initialize karo (FCM ke liye)
+  initializeFirebase(); 
 
   app.listen(env.port, () => {
     console.log(`Server running on port ${env.port}`);

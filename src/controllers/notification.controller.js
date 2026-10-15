@@ -1,7 +1,8 @@
 const notificationService = require("../services/notification.service");
 const asyncHandler = require("../utils/asyncHandler");
 const sendResponse = require("../utils/response");
-
+const fcmService = require("../services/fcm.service");
+const AppError = require("../utils/AppError");
 /**
  * GET /api/v1/notifications
  * Query: ?page=1&limit=20&status=all|unread|read
@@ -74,6 +75,52 @@ const clearAllRead = asyncHandler(async (req, res) => {
   return sendResponse(res, 200, "Read notifications cleared", result);
 });
 
+/**
+ * POST /api/v1/notifications/register-token
+ * Body: { token: "<fcm_token>" }
+ */
+const registerFcmToken = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+
+  if (!token || typeof token !== "string") {
+    throw new AppError("FCM token is required", 400);
+  }
+
+  const result = await fcmService.registerFcmToken(req.user.userId, token);
+  const message = result.alreadyExisted
+    ? "FCM token already registered"
+    : "FCM token registered successfully";
+
+  return sendResponse(
+    res,
+    200, message,
+    { added: result.added,
+      alreadyExisted: result.alreadyExisted,
+     });
+});
+
+/**
+ * DELETE /api/v1/notifications/unregister-token
+ * Body: { token: "<fcm_token>" }
+ * Logout pe frontend isko call kare
+ */
+const unregisterFcmToken = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+
+  if (!token || typeof token !== "string") {
+    throw new AppError("FCM token is required", 400);
+  }
+
+  const result = await fcmService.removeFcmToken(req.user.userId, token);
+
+  return sendResponse(
+    res,
+    200,
+    result.removed ? "FCM token removed" : "FCM token not found",
+  );
+});
+
+
 module.exports = {
   getNotifications,
   getUnreadCount,
@@ -81,4 +128,6 @@ module.exports = {
   markAllAsRead,
   deleteNotification,
   clearAllRead,
+  registerFcmToken,
+  unregisterFcmToken
 };

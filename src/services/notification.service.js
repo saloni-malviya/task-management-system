@@ -1,6 +1,7 @@
 const Notification = require("../models/Notification");
 const mongoose = require("mongoose");
 const AppError = require("../utils/AppError");
+const fcmService = require("./fcm.service"); 
 
 /**
  * Core function — Notification create karo
@@ -16,6 +17,10 @@ const createNotification = async ({
   metadata = {},
 }) => {
   try {
+    if (!recipient || !sender) {
+  console.error("Notification: recipient/sender missing");
+  return null;
+}
     // Khud ko notification mat bhejo
     if (recipient.toString() === sender.toString()) {
       return null;
@@ -56,7 +61,9 @@ const notifyTaskEvent = async ({
   metadata = {},
   includeRelatedId = true,
 }) => {
-  return createNotification({
+
+  //mongodb me save (inAPP ke liye)
+  const notification = await createNotification({
     recipient,
     sender,
     type,
@@ -68,6 +75,24 @@ const notifyTaskEvent = async ({
       ...metadata,
     },
   });
+
+  // 2. FCM push bhejo (push notification ke liye — Option B)
+  if (notification) {
+    await fcmService.sendPushToUser(recipient, {
+      title: title,
+      body: message,
+      data: {
+        type: type,
+        taskId: task._id.toString(),
+        notificationId: notification._id.toString(),
+        screen: "task-details",
+      },
+    });
+  }
+
+  return notification;
+
+
 };
 
 

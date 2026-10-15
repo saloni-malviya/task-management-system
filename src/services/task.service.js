@@ -709,7 +709,7 @@ const deleteTask = async (taskId, userId, role, req = null) => {
       task,
       recipient: task.assignedTo,
       sender: userId,
-      type: task_deleted,
+      type: "task_deleted",
       title: "Task Deleted",
       message: `Task "${task.title}" has been deleted`,
       metadata: { deletedBy: userId },
