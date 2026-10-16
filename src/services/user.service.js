@@ -99,7 +99,7 @@ const getAllUsers = async (page = 1, limit = 10, query = {}) => {
     pipeline.push({ $match: { isDeleted: true } });
   } else if (!includeDeleted) {
     pipeline.push({
-      $match: { isDeleted: false },
+      $match: { isDeleted: false, approvalStatus: "approved",  },
     });
   }
 

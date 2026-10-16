@@ -25,6 +25,9 @@ const notificationSchema = new mongoose.Schema(
         "task_deleted",         // admin → user
         "task_status_changed",  // dono directions
         "task_completed",       // user → admin (special case)
+        "user_registration_pending",  // user → admin
+        "user_approved",              // admin → user
+        "user_rejected",              // admin → user
       ],
     },
 

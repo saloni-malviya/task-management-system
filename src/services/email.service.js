@@ -171,9 +171,72 @@ Task Management System
   return transporter.sendMail(mailOptions);
 };
 
+const sendAccountApprovedEmail = async (user) => {
+  if (!user?.email) {
+    throw new Error("User email is missing");
+  }
+/*
+  const loginUrl = process.env.FRONTEND_URL
+    ? `${process.env.FRONTEND_URL}/login`
+    : "the application";
+
+    ${loginUrl}
+    */
+
+  const mailOptions = {
+    from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+    to: user.email,
+    subject: "🎉 Your Account Has Been Approved - Task Management System",
+    text: `
+Hello ${user.name},
+
+Great news! Your account has been approved by the admin.
+
+You can now login using your email and password.
+
+For security, an OTP will be sent to your email each time you login.
+
+Welcome aboard!
+
+Regards,
+Task Management System
+`,
+  };
+
+  return transporter.sendMail(mailOptions);
+};
+
+const sendAccountRejectedEmail = async (user, reason) => {
+  if (!user?.email) {
+    throw new Error("User email is missing");
+  }
+
+  const mailOptions = {
+    from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+    to: user.email,
+    subject: "Your Account Registration Was Rejected",
+    text: `
+Hello ${user.name},
+
+Unfortunately, your account registration request was rejected by the admin.
+
+${reason ? `Reason: ${reason}` : ""}
+
+If you believe this was a mistake, please contact the administrator.
+
+Regards,
+Task Management System
+`,
+  };
+
+  return transporter.sendMail(mailOptions);
+};
+
 module.exports = {
   sendTaskAssignedEmail,
   sendPasswordResetOtpEmail,
   sendEmailVerificationOtpEmail,
   sendTaskReminderEmail,
+  sendAccountApprovedEmail,
+  sendAccountRejectedEmail,
 };

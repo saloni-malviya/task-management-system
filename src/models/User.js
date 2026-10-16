@@ -110,6 +110,43 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    // ===== ADMIN APPROVAL STATUS =====
+    approvalStatus: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+      index: true,
+    },
+
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    approvedAt: {
+      type: Date,
+      default: null,
+    },
+
+    rejectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    rejectedAt: {
+      type: Date,
+      default: null,
+    },
+
+    rejectionReason: {
+      type: String,
+      default: null,
+      maxlength: 500,
+    },
+
+
     // ===== FCM TOKENS (NAYA — Option B) =====
     fcmTokens: {
       type: [String],

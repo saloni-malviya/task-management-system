@@ -7,6 +7,7 @@ const AppError = require("../utils/AppError");
 const env = require("../config/env");
 const emailQueue = require("../queues/email.queue");
 const { logActivity } = require("./activityLog.service");
+const notificationService = require("./notification.service");
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 min
 const OTP_COOLDOWN_MS = 60 * 1000; // 1 min
@@ -252,6 +253,7 @@ const registerUser = async ({ name, email, password }, req = null) => {
       password: hashedPassword,
       role: "user",
       isEmailVerified: false,
+      approvalStatus: "pending", 
     });
   } catch (error) {
     if (error.code === 11000) {
@@ -269,17 +271,47 @@ const registerUser = async ({ name, email, password }, req = null) => {
     entityType: "User",
     entityId: user._id,
     entityName: user.name,
-    metadata: { email: user.email },
+    metadata: { email: user.email, approvalStatus: "pending" },
     req,
   });
 
+
+  // ✅ Admin ko notification bhejo ki naya user register hua hai
+  try {
+    const admins = await User.find({
+      role: "admin",
+      isDeleted: false,
+      approvalStatus: "approved",
+    }).select("_id");
+
+    for (const admin of admins) {
+      await notificationService.createNotification({
+        recipient: admin._id,
+        sender: user._id,
+        type: "user_registration_pending",
+        title: "New User Registration Pending",
+        message: `${user.name} (${user.email}) has registered and is waiting for your approval.`,
+        metadata: {
+          userId: user._id,
+          userName: user.name,
+          userEmail: user.email,
+        },
+      });
+    }
+    console.log(`🔔 Admin notification sent for new registration: ${user.email}`);
+  } catch (error) {
+    console.error("Admin notification failed:", error.message);
+    // Don't throw — registration ho gaya
+  }
+
+/*
   // Send verification OTP (non-blocking failure)
   try {
     await sendOtp(user._id, "email-verification");
   } catch (error) {
     console.error("Verification OTP sending failed:", error.message);
     // Don't throw — user can resend later
-  }
+  }*/
 
   //response se password htana
   const userObject = user.toObject();
@@ -288,7 +320,7 @@ const registerUser = async ({ name, email, password }, req = null) => {
   return {
     ...userObject,
     message:
-      "Registration successful. Please check your email for verification OTP.",
+      "Registration successful. Please wait for admin approval before logging in.",
   };
 };
 
@@ -301,17 +333,45 @@ const loginUser = async ({ email, password }, req = null) => {
     throw new AppError("Invalid email or password", 401);
   }
 
+  // ===== ADMIN APPROVAL CHECK =====
+  if (user.approvalStatus === "pending") {
+    throw new AppError(
+      "Your account is pending admin approval. Please wait for approval before logging in.",
+      403,
+    );
+  }
+
+  if (user.approvalStatus === "rejected") {
+    throw new AppError(
+      "Your account has been rejected by admin. Please contact support.",
+      403,
+    );
+  }
+
   const isPasswordCorrect = await bcrypt.compare(password, user.password);
 
   if (!isPasswordCorrect) {
     throw new AppError("Invalid email or password", 401);
   }
 
+  // ===== EMAIL VERIFICATION (OTP) FLOW =====
+  // Agar email verified nahi hai, to OTP bhejo aur login rok do
   if (!user.isEmailVerified) {
-    throw new AppError(
-      "Please verify your email before logging in. Check your inbox for the OTP.",
-      403,
-    );
+    try {
+      await sendOtp(user._id, "email-verification");
+    } catch (error) {
+      throw new AppError(
+        `Unable to send OTP: ${error.message}`,
+        500,
+      );
+    }
+
+    return {
+      requiresEmailVerification: true,
+      email: user.email,
+      message:
+        "OTP sent to your email. Please verify to complete login.",
+    };
   }
 
   // Log login
@@ -501,8 +561,17 @@ const verifyEmail = async (email, otp, req = null) => {
     req,
   });
 
+  // ✅ NAYA — Auto-login: tokens generate karo
+  const accessToken = generateAccessToken(user);
+  const refreshToken = generateRefreshToken(user);
+
+  const userObject = user.toObject();
+  delete userObject.password;
+
+
   return {
-    message: "Email verified successfully. You can now login.",
+    message: "Email verified successfully. You are now logged in.",
+    user: userObject, accessToken, refreshToken,
   };
 };
 
@@ -517,6 +586,15 @@ const resendVerificationOtp = async (email) => {
         "If an account exists with this email, a verification OTP has been sent.",
     };
   }
+
+  // Approval check
+  if (user.approvalStatus !== "approved") {
+    throw new AppError(
+      "Your account is not approved yet. Please wait for admin approval.",
+      403,
+    );
+  }
+
 
   if (user.isEmailVerified) {
     throw new AppError("Email is already verified. Please login.", 400);

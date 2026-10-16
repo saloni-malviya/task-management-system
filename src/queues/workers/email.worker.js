@@ -39,6 +39,24 @@ const emailWorker = new Worker(
         break;
       }
 
+       case "send-account-approved": {
+        const { email } = data;
+        const user = await User.findOne({ email }).select("name email");
+        if (!user) throw new Error(`User not found: ${email}`);
+
+        await emailService.sendAccountApprovedEmail(user);
+        break;
+      }
+
+       case "send-account-rejected": {
+        const { email, reason } = data;
+        const user = await User.findOne({ email }).select("name email");
+        if (!user) throw new Error(`User not found: ${email}`);
+
+        await emailService.sendAccountRejectedEmail(user, reason);
+        break;
+      }
+
       default:
         throw new Error(`Unknown job type: ${name}`);
     }

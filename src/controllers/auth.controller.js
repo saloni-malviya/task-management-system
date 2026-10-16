@@ -49,7 +49,7 @@ const verifyEmail = asyncHandler(async (req, res) => {
     req,
   );
 
-  return sendResponse(res, 200, result.message);
+  return sendResponse(res, 200, result.message, result);
 });
 
 const refresh = asyncHandler(async (req, res) => {

@@ -15,6 +15,37 @@ router.get(
   adminController.getDashboardStats,
 );
 
+router.get(
+  "/users/pending",
+  protect,
+  authorizeRoles("admin"),
+  adminController.getPendingUsers,
+);
+
+router.get(
+  "/users/rejected",
+  protect,
+  authorizeRoles("admin"),
+  adminController.getRejectedUsers,
+);
+
+router.patch(
+  "/users/:id/approve",
+  protect,
+  authorizeRoles("admin"),
+  writeLimiter,
+  adminController.approveUser,
+);
+
+router.patch(
+  "/users/:id/reject",
+  protect,
+  authorizeRoles("admin"),
+  writeLimiter,
+  adminController.rejectUser,
+);
+
+
 router.post(
   "/tasks/:id/restore",
   protect,

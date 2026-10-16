@@ -21,10 +21,11 @@ const createTask = async (taskData, createdBy, req = null) => {
   const assignedUser = await User.findOne({
     _id: assignedTo,
     isDeleted: false,
+    approvalStatus: "approved",   //sirf approve user ko task assign ho
   });
 
   if (!assignedUser) {
-    throw new AppError("Assigned user not found", 404);
+    throw new AppError("Assigned user not found or not approved", 404);
   }
 
   // Get creator details
@@ -316,10 +317,11 @@ const updateTask = async (taskId, updateData, userId, role, req = null) => {
       newAssignedUser = await User.findOne({
         _id: updateData.assignedTo,
         isDeleted: false,
+         approvalStatus: "approved",
       });
 
       if (!newAssignedUser) {
-        throw new AppError("Assigned user not found", 404);
+        throw new AppError("Assigned user not found or not approved", 404);
       }
     }
 
